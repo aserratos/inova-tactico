@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Mic, MicOff, Save, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { Camera, Mic, MicOff, Save, ChevronLeft } from 'lucide-react';
 
 interface ReportDetails {
   id: number;
