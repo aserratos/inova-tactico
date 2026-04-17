@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Verificación Táctica (MFA){% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[75vh] w-full flex-col font-sans">
+    
+    <!-- Decorative BG Elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-inova-secondary_container/30 blur-[120px] rounded-full"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-inova-primary/5 blur-[100px] rounded-full"></div>
+    </div>
+
+    <!-- MFA Container Glassmorphism -->
+    <div class="w-full max-w-[420px] bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-inova-surface_variant p-10 sm:p-12 relative overflow-hidden group">
+        
+        <!-- Hover Glow -->
+        <div class="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-inova-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center p-4 bg-inova-surface_low rounded-2xl border border-inova-surface_variant mb-6 shadow-sm text-inova-primary">
+                <svg class="w-10 h-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-black text-inova-primary tracking-[0.1em] uppercase mb-2">Protocolo MFA</h2>
+            <p class="text-[10px] font-bold text-inova-on_surface_variant uppercase tracking-[0.2em]">Verificación en 2 pasos</p>
+        </div>
+
+        <form class="space-y-6" action="{{ url_for('auth.mfa') }}" method="POST">
+            <div class="space-y-2">
+                <label for="token" class="block text-[9px] font-black text-inova-on_surface_variant uppercase tracking-widest text-center">Código de Seguridad (6 dígitos)</label>
+                <div class="relative mt-2">
+                    <input id="token" name="token" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" required maxlength="6"
+                        class="block w-full px-4 py-4 text-center text-3xl font-black tracking-[0.5em] bg-white border-2 border-inova-surface_variant rounded-2xl text-inova-on_surface placeholder:text-inova-on_surface_variant/30 focus:outline-none focus:ring-4 focus:ring-inova-primary/10 focus:border-inova-primary transition-all shadow-sm"
+                        placeholder="000000">
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="group relative w-full flex justify-center py-4 px-4 border border-inova-surface_variant rounded-2xl shadow-lg text-xs font-black text-white uppercase tracking-[0.2em] bg-inova-primary hover:bg-inova-primary_container focus:outline-none transition-all duration-300 overflow-hidden transform active:scale-95">
+                    <span class="absolute right-4 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </span>
+                    Verificar Código
+                </button>
+            </div>
+            
+            <div class="text-center pt-4">
+                <a href="{{ url_for('auth.logout') }}" class="text-[10px] font-bold text-inova-on_surface_variant hover:text-inova-primary transition-colors flex items-center justify-center gap-2 uppercase tracking-widest">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

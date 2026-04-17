@@ -1,0 +1,36 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Variables de entorno (¡MUY IMPORTANTE NO SUBIRLO!)
+.env
+
+# Archivos de caché y compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Bases de datos locales
+instance/
+*.sqlite3
+*.db
+
+# Node.js (Frontend)
+frontend-pwa/node_modules/
+frontend-pwa/dist/
+frontend-pwa/.npm/
+
+# IDEs y SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Plantillas y pruebas locales (opcional, si no quieres subir basuras)
+plantillas/borradores/
+Scripts/scratch.txt

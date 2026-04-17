@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{% block title %}Escritorio Operativo | Inova Securité{% endblock %}
+
+{% block content %}
+<div class="w-full" x-data="{ 
+    tab: 'reports', 
+    mobileMenuOpen: false,
+    isLoading: true,
+    init() {
+        setTimeout(() => { this.isLoading = false; this.initCharts(); }, 1200);
+    },
+    showDeleteModal: false, deleteUrl: '', 
+    showResetModal: false, resetUrl: '', resetUserEmail: '', 
+    showCreateModal: false, 
+    filterResponsable: '', filterTipo: '', filterAvance: '', filterEtapa: '', 
+    initCharts() {
+        const ctxStatus = document.getElementById('statusChart')?.getContext('2d');
+        if (ctxStatus) {
+            new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Terminado', 'Ejecución', 'Pendiente', 'Por Hacer'],
+                    datasets: [{
+                        data: [
+                            {{ draft_reports|selectattr('status', 'equalto', 'terminado')|list|length }},
+                            {{ draft_reports|selectattr('status', 'equalto', 'en_ejecucion')|list|length }},
+                            {{ draft_reports|selectattr('status', 'equalto', 'pendiente')|list|length }},
+                            {{ draft_reports|selectattr('status', 'equalto', 'por_hacer')|list|length }}
+                        ],
+                        backgroundColor: ['#105c31', '#00346f', '#f59e0b', '#e5e2db'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: { cutout: '75%', plugins: { legend: { display: false } } }
+            });
+        }
+    },
+    matchFilter(responsable, tipo, avance) { 
+        if (this.filterResponsable && this.filterResponsable !== responsable) return false; 
+        if (this.filterTipo && this.filterTipo !== tipo) return false; 
+        if (this.filterAvance) { 
+            if (this.filterAvance === '0' && avance > 0) return false; 
+            if (this.filterAvance === '1-49' && (avance === 0 || avance >= 50)) return false; 
+            if (this.filterAvance === '50-99' && (avance < 50 || avance >= 100)) return false; 
+            if (this.filterAvance === '100' && avance < 100) return false; 
+        } 
+        return true; 
+    } 
+}">
+    
+    <!-- Mobile Hamburger Toggle -->
+    <div class="md:hidden flex justify-between items-center mb-6">
+        <h2 class="text-xl font-black text-inova-primary tracking-tight">Menú Operativo</h2>
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-3 bg-white text-inova-primary rounded-xl shadow-sm border border-inova-surface_variant active:scale-95 transition-transform">
+            <svg x-show="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            <svg x-show="mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    
+    <div class="flex flex-col md:flex-row w-full gap-8 min-h-[calc(100vh-5rem)]">
+        <!-- RESPONSIVE SIDEBAR -->
+        <aside :class="mobileMenuOpen ? 'flex' : 'hidden md:flex'" class="w-full md:w-64 shrink-0 flex-col gap-4">
+            <div class="bg-inova-surface_low border border-inova-surface_variant rounded-3xl p-3 flex flex-col gap-2 sticky top-24 shadow-sm">
+                
+                <div class="px-4 py-4 mb-2">
+                    <span class="text-[10px] uppercase font-black text-inova-secondary tracking-widest">{{ current_user.role | replace('_', ' ') }}</span>
+                    <div class="text-inova-primary font-black text-xs tracking-tight mt-1">Panel de Control</div>
+                </div>
+                
+                <button @click="tab = 'reports'; mobileMenuOpen = false" :class="tab === 'reports' ? 'bg-inova-primary_container text-white shadow-md' : 'bg-transparent text-inova-on_surface_variant hover:bg-white hover:text-inova-primary hover:shadow-sm border-transparent'" class="w-full text-left py-4 px-6 rounded-2xl transition-all flex items-center gap-4 text-sm font-bold border relative group">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    Operaciones
+                    {% if draft_reports|length > 0 %} <span class="absolute right-4 w-2 h-2 rounded-full bg-inova-error animate-pulse shadow-sm"></span> {% endif %}
+                </button>
+                <button @click="tab = 'templates'; mobileMenuOpen = false" :class="tab === 'templates' ? 'bg-inova-primary_container text-white shadow-md' : 'bg-transparent text-inova-on_surface_variant hover:bg-white hover:text-inova-primary hover:shadow-sm border-transparent'" class="w-full text-left py-4 px-6 rounded-2xl transition-all flex items-center gap-4 text-sm font-bold border">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6v13c1.168.776 2.754 1.253 4.5 1.253s3.332-.477 4.5-1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Plantillas
+                </button>
+                {% if current_user.is_admin %}
+                <button @click="tab = 'users'; mobileMenuOpen = false" :class="tab === 'users' ? 'bg-inova-primary_container text-white shadow-md' : 'bg-transparent text-inova-on_surface_variant hover:bg-white hover:text-inova-primary hover:shadow-sm border-transparent'" class="w-full text-left py-4 px-6 rounded-2xl transition-all flex items-center gap-4 text-sm font-bold border mt-4">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0"></path></svg>
+                    Agentes
+                </button>
+                <button @click="tab = 'logs'; mobileMenuOpen = false" :class="tab === 'logs' ? 'bg-inova-primary_container text-white shadow-md' : 'bg-transparent text-inova-on_surface_variant hover:bg-white hover:text-inova-primary hover:shadow-sm border-transparent'" class="w-full text-left py-4 px-6 rounded-2xl transition-all flex items-center gap-4 text-sm font-bold border">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                    Bitácora
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- STATIC SERVER HEALTH RIBBON -->
+            {% if current_user.is_admin %}
+            <div x-data="{ 
+                    stats: { cpu: 0, memory: { percent: 0 }, disk: { percent: 0 } },
+                    interval: null,
+                    init() {
+                        const fetchStats = () => {
+                            fetch('/api/system_stats')
+                                .then(r => r.ok ? r.json() : null)
+                                .then(d => { if(d && !d.error) this.stats = d; })
+                                .catch(e => console.log('Telemetría local en pausa'));
+                        };
+                        fetchStats();
+                        this.interval = setInterval(fetchStats, 5000);
+                    }
+                 }"
+                 class="bg-white border border-inova-surface_variant rounded-3xl p-5 shadow-sm sticky top-[480px]">
+                 <span class="text-[10px] font-black uppercase text-inova-secondary tracking-widest mb-4 block">Salud del Servidor</span>
+                 
+                 <div class="space-y-4">
+                     <div class="flex items-center justify-between">
+                         <div class="flex items-center gap-2">
+                             <div class="w-2 h-2 rounded-full" :class="stats.cpu > 80 ? 'bg-inova-error animate-pulse' : 'bg-green-500'"></div>
+                             <span class="text-xs font-bold text-inova-on_surface_variant">CPU</span>
+                         </div>
+                         <span class="text-sm font-black text-inova-on_surface" x-text="(stats.cpu || 0) + '%'"></span>
+                     </div>
+                     <div class="flex items-center justify-between">
+                         <div class="flex items-center gap-2">
+                             <div class="w-2 h-2 rounded-full" :class="stats.memory.percent > 85 ? 'bg-inova-error animate-pulse' : 'bg-blue-500'"></div>
+                             <span class="text-xs font-bold text-inova-on_surface_variant">RAM</span>
+                         </div>
+                         <span class="text-sm font-black text-inova-on_surface" x-text="(stats.memory.percent || 0) + '%'"></span>
+                     </div>
+                     <div class="flex items-center justify-between">
+                         <div class="flex items-center gap-2">
+                             <div class="w-2 h-2 rounded-full" :class="stats.disk.percent > 90 ? 'bg-inova-error animate-pulse' : 'bg-orange-500'"></div>
+                             <span class="text-xs font-bold text-inova-on_surface_variant">SSD</span>
+                         </div>
+                         <span class="text-sm font-black text-inova-on_surface" x-text="(stats.disk.percent || 0) + '%'"></span>
+                     </div>
+                 </div>
+            </div>
+            {% endif %}
+        </aside>
+        
+        <div class="flex-1 w-full space-y-8 min-w-0">
+
+            <!-- TAB: REPORTS -->
+            <div x-show="tab === 'reports'" x-transition:enter="transition-all duration-300 ease-out" x-transition:enter-start="opacity-0 translate-y-2">
+                
+                <!-- ANALYTICS LAYER (Ivory Prototype) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                    <div class="lg:col-span-2 bg-white rounded-[2.5rem] border border-inova-surface_variant p-8 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                        <div class="relative w-40 h-40">
+                            <canvas id="statusChart"></canvas>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-3xl font-black text-inova-primary">{{ draft_reports|length }}</span>
+                                <span class="text-[9px] font-black text-inova-on_surface_variant uppercase tracking-widest">Total</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 space-y-4 w-full">
+                            <h3 class="text-xl font-black text-inova-primary tracking-tight">Distribución de Operaciones</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-inova-surface_low p-4 rounded-2xl border border-inova-surface_variant">
+                                    <span class="text-[9px] font-black text-green-700 uppercase tracking-widest block mb-1">Completados</span>
+                                    <span class="text-xl font-black text-inova-on_surface">{{ draft_reports|selectattr('status', 'equalto', 'terminado')|list|length }}</span>
+                                </div>
+                                <div class="bg-inova-surface_low p-4 rounded-2xl border border-inova-surface_variant">
+                                    <span class="text-[9px] font-black text-inova-primary uppercase tracking-widest block mb-1">En Curso</span>
+                                    <span class="text-xl font-black text-inova-on_surface">{{ draft_reports|selectattr('status', 'equalto', 'en_ejecucion')|list|length }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-inova-primary rounded-[2.5rem] p-8 shadow-xl flex flex-col justify-between text-white relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                            <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3v6h8V3h-8zm0 18h8v-10h-8v10zM3 21h8v-6H3v6zm0-8h8V3H3v10z"/></svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Rendimiento Global</span>
+                            <h4 class="text-4xl font-black mt-2 tracking-tighter">{% if draft_reports %}{{ (draft_reports|map(attribute='porcentaje_avance')|sum / draft_reports|length)|round(1) }}{% else %}0{% endif %}%</h4>
+                        </div>
+                        <p class="text-[11px] font-bold opacity-80 mt-4 leading-relaxed">Promedio de avance en todas las misiones activas.</p>
+                    </div>
+                </div>
+
+                <!-- Filter Bar (Ivory Edition) -->
+                <div class="bg-white p-6 rounded-3xl border border-inova-surface_variant shadow-sm flex flex-wrap gap-4 mb-10">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-2 px-2">Responsable</label>
+                        <select x-model="filterResponsable" class="w-full text-sm font-bold text-inova-on_surface bg-inova-surface_low border border-inova-surface_variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-inova-primary focus:border-inova-primary outline-none">
+                            <option value="">Todos los Responsables</option>
+                            {% for u in draft_reports|map(attribute='assigned_to.email')|unique %}
+                            {% if u %}<option value="{{ u }}">{{ u.split('@')[0] }}</option>{% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-2 px-2">Tipo de Plantilla</label>
+                        <select x-model="filterTipo" class="w-full text-sm font-bold text-inova-on_surface bg-inova-surface_low border border-inova-surface_variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-inova-primary focus:border-inova-primary outline-none">
+                            <option value="">Todos los Tipos</option>
+                            {% for t in draft_reports|map(attribute='template.nombre')|unique %}
+                            {% if t %}<option value="{{ t }}">{{ t }}</option>{% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-2 px-2">Etapa</label>
+                        <select x-model="filterEtapa" class="w-full text-sm font-bold text-inova-on_surface bg-inova-surface_low border border-inova-surface_variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-inova-primary focus:border-inova-primary outline-none">
+                            <option value="">Todas</option>
+                            <option value="por_hacer">01. Por Hacer</option>
+                            <option value="en_ejecucion">02. Ejecución</option>
+                            <option value="pendiente">03. Pendiente</option>
+                            <option value="terminado">04. Completados</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex items-end flex-shrink-0">
+                        <button @click="filterResponsable = ''; filterTipo = ''; filterEtapa = ''" 
+                                x-show="filterResponsable || filterTipo || filterEtapa"
+                                class="px-6 py-3 bg-red-50 text-inova-error hover:bg-inova-error hover:text-white transition-all rounded-xl text-xs font-black uppercase tracking-widest border border-red-100">
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
+                
+                <style>
+                    /* Custom Scrollbar for Kanban */
+                    .kanban-scrollbar::-webkit-scrollbar { height: 10px; }
+                    .kanban-scrollbar::-webkit-scrollbar-track { background: #f6f3ec; border-radius: 10px; }
+                    .kanban-scrollbar::-webkit-scrollbar-thumb { background: #dcd9d2; border-radius: 10px; }
+                    .kanban-scrollbar::-webkit-scrollbar-thumb:hover { background: #00346f; }
+                </style>
+                <div class="flex flex-nowrap gap-6 overflow-x-auto pb-8 snap-x snap-mandatory kanban-scrollbar">
+                {% set status_config = [
+                    {'id': 'por_hacer', 'label': 'Por Hacer', 'icon': '📝'},
+                    {'id': 'en_ejecucion', 'label': 'En Ejecución', 'icon': '⚡'},
+                    {'id': 'pendiente', 'label': 'Pendiente', 'icon': '⏳'},
+                    {'id': 'terminado', 'label': 'Completados', 'icon': '✅'}
+                ] %}
+
+                {% for s in status_config %}
+                {% set reports_in_status = draft_reports|selectattr('status', 'equalto', s.id)|list %}
+                <div x-show="!filterEtapa || filterEtapa === '{{ s.id }}'" class="flex-shrink-0 w-[300px] xl:w-auto xl:flex-1 snap-center flex flex-col bg-inova-surface_low rounded-[2.5rem] p-5 border border-inova-surface_variant">
+                    <div class="flex items-center justify-between mb-6 px-1 pt-1">
+                        <h2 class="text-lg font-black text-inova-primary tracking-tight flex items-center gap-2">
+                            <span>{{ s.icon }}</span> {{ s.label }}
+                        </h2>
+                        <span class="text-[10px] font-black bg-white text-inova-secondary px-3 py-1.5 rounded-xl border border-inova-surface_variant shadow-sm">{{ reports_in_status|length }}</span>
+                    </div>
+
+                    <div class="flex-1 min-h-[500px] space-y-4 relative" 
+                         id="kanban-col-{{ s.id }}" 
+                         data-status="{{ s.id }}"
+                         x-init="
+                            new Sortable($el, {
+                                group: 'kanban',
+                                animation: 200,
+                                ghostClass: 'opacity-40',
+                                dragClass: 'shadow-2xl',
+                                onEnd: function(evt) {
+                                    if(evt.to !== evt.from) {
+                                        const instanceId = evt.item.dataset.id;
+                                        const newStatus = evt.to.dataset.status;
+                                        const avance = parseInt(evt.item.dataset.avance || 0);
+
+                                        // Validación local (Gatekeeper) inmediata
+                                        if(newStatus === 'terminado' && avance < 100) {
+                                            document.dispatchEvent(new CustomEvent('new-notification', { detail: { title: 'Sistema de Precisión', message: 'Se requiere el 100% de captura para completar un levantamiento.', type: 'error' } }));
+                                            evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                                            return;
+                                        }
+
+                                        fetch(`/api/report/update_status/${instanceId}`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: newStatus })
+                                        }).then(res => res.json()).then(data => {
+                                            if(data.status === 'success') {
+                                                document.dispatchEvent(new CustomEvent('new-notification', { detail: { title: 'Estatus Actualizado', message: 'Reporte movido con éxito a ' + newStatus.replace('_', ' '), type: 'success' } }));
+                                                // Eliminar el Empty State de la columna de destino si lo tiene y tiene elementos
+                                                const emptyStateTo = evt.to.querySelector('.empty-state-placeholder');
+                                                if(emptyStateTo) emptyStateTo.style.display = 'none';
+                                            } else {
+                                                document.dispatchEvent(new CustomEvent('new-notification', { detail: { title: 'Acceso Denegado', message: data.message, type: 'error' } }));
+                                                evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                                            }
+                                        }).catch(err => {
+                                            document.dispatchEvent(new CustomEvent('new-notification', { detail: { title: 'Error de Red', message: 'No se pudo sincronizar el cambio de estatus. Intenta nuevamente.', type: 'error' } }));
+                                            evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                                        });
+                                    }
+                                }
+                            });
+                         ">
+                         
+                        <!-- SKELETON LOADERS -->
+                        <template x-if="isLoading">
+                            <div class="bg-white rounded-3xl border border-inova-surface_variant p-5 shadow-sm flex flex-col gap-4">
+                                <div class="h-3 w-1/4 skeleton rounded-full"></div>
+                                <div class="h-5 w-full skeleton rounded-lg"></div>
+                                <div class="flex justify-between items-center pt-2 mt-2 border-t border-inova-surface_variant">
+                                    <div class="flex items-center gap-2"><div class="h-6 w-6 skeleton rounded-full"></div><div class="h-2 w-12 skeleton rounded-full"></div></div>
+                                    <div class="h-4 w-8 skeleton rounded-full"></div>
+                                </div>
+                            </div>
+                        </template>
+
+                        {% for r in draft_reports %}
+                        {% if r.status == s.id %}
+                        <div x-show="!isLoading && matchFilter('{{ r.assigned_to.email }}', '{{ r.template.nombre }}', {{ r.porcentaje_avance }})" 
+                             data-id="{{ r.id }}"
+                             data-avance="{{ r.porcentaje_avance }}"
+                             class="cursor-grab active:cursor-grabbing bg-white rounded-3xl border border-inova-surface_variant px-5 py-4 shadow-sm hover:shadow-[0_8px_30px_rgba(28,28,24,0.08)] hover:-translate-y-1 transition-all duration-300 relative group overflow-hidden">
+                             
+                             <!-- Barra indicadora en el borde izquierdo superior visual -->
+                             <div class="absolute top-0 left-0 right-0 h-1 {{ 'bg-orange-500' if r.status == 'pendiente' else 'bg-green-500' if r.status == 'terminado' else 'bg-inova-primary' }}"></div>
+
+                             <div class="flex justify-between items-start mb-3 pt-1">
+                                 <span class="text-[9px] font-black text-inova-secondary uppercase tracking-widest bg-inova-surface_low border border-inova-surface_variant px-2 py-0.5 rounded-md truncate max-w-[150px]">T-{{ r.template.nombre }}</span>
+                                 <button @click.stop="deleteUrl = '{{ url_for('templates.delete_report', instance_id=r.id) }}'; showDeleteModal = true" 
+                                     class="opacity-0 group-hover:opacity-100 p-1.5 -m-1.5 bg-red-50 text-inova-error rounded-lg hover:bg-inova-error hover:text-white transition-all relative z-10">
+                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                 </button>
+                             </div>
+                             
+                             <a href="{{ url_for('templates.edit_report', instance_id=r.id) }}" class="block focus:outline-none" @click="$dispatch('loading-show')">
+                                 <h4 class="text-sm font-black text-inova-on_surface leading-snug mb-5 group-hover:text-inova-primary transition-colors line-clamp-2">{{ r.nombre }}</h4>
+                                 
+                                 <div class="flex items-center justify-between border-t border-inova-surface_variant pt-3 mt-1">
+                                     <div class="flex items-center gap-2">
+                                         <div class="w-6 h-6 rounded-full bg-inova-secondary_container text-inova-primary flex items-center justify-center text-[10px] font-black shadow-sm border border-inova-primary/10">{{ r.assigned_to.email[0]|upper }}</div>
+                                         <span class="text-[10px] font-bold text-inova-on_surface">{{ r.assigned_to.email.split('@')[0] }}</span>
+                                     </div>
+                                     <span class="text-[11px] font-black bg-inova-surface_low border border-inova-surface_variant px-2 py-0.5 rounded-lg {{ 'text-orange-600' if r.status == 'pendiente' else 'text-green-600' if r.status == 'terminado' else 'text-inova-primary' }}">{{ r.porcentaje_avance }}%</span>
+                                 </div>
+                             </a>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Empty State para poder arrastrar en listas vacías -->
+                        {% if reports_in_status|length == 0 %}
+                        <div class="py-10 px-4 border-2 border-dashed border-inova-surface_variant rounded-3xl flex flex-col items-center justify-center text-center opacity-40 empty-state-placeholder pointer-events-none mt-4">
+                             <span class="text-3xl mb-3 grayscale">{{ s.icon }}</span>
+                             <span class="text-[10px] font-black uppercase tracking-widest text-inova-on_surface_variant">Zona Despejada</span>
+                        </div>
+                        {% else %}
+                        <!-- Spacer virtual para mantener dropzone -->
+                        <div class="empty-state-placeholder" style="display:none; padding:10px;"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+
+            <!-- TAB: TEMPLATES -->
+            <div x-show="tab === 'templates'" x-transition:enter="transition-all duration-300 ease-out" x-transition:enter-start="opacity-0 translate-y-2">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+                    <div>
+                        <h1 class="text-4xl font-black text-inova-primary tracking-tight leading-none mb-2">Biblioteca Madre</h1>
+                        <p class="text-inova-on_surface_variant font-bold text-sm">Gestiona y despliega documentos operativos.</p>
+                    </div>
+                    
+                    {% if current_user.is_admin %}
+                    <div class="bg-white p-3 rounded-[2rem] border border-inova-surface_variant shadow-sm flex items-center gap-4">
+                        <form action="{{ url_for('templates.upload') }}" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3 w-full">
+                            <input type="text" name="nombre" class="text-sm bg-inova-surface_low border border-inova-surface_variant rounded-2xl px-5 py-3 focus:outline-none focus:ring-2 focus:ring-inova-primary font-bold text-inova-on_surface w-full sm:w-64" placeholder="Nombre Oficial de Matriz" required>
+                            <input type="file" name="document" accept=".docx" class="hidden" id="file-upload" required @change="$dispatch('loading-show'); $el.form.submit()">
+                            <label for="file-upload" class="bg-inova-primary text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest cursor-pointer hover:bg-inova-primary_container hover:shadow-md transition-all active:scale-95 whitespace-nowrap text-center">Subir .DOCX</label>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for template in templates %}
+                    <div class="bg-white rounded-[2rem] border border-inova-surface_variant p-8 hover:shadow-[0_12px_40px_rgba(28,28,24,0.06)] transition-all duration-300 flex flex-col justify-between group">
+                        <div>
+                             <div class="w-14 h-14 bg-inova-surface_low rounded-2xl mb-6 flex items-center justify-center group-hover:bg-inova-secondary_container transition-colors">
+                                <svg class="w-6 h-6 text-inova-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                             </div>
+                            <h3 class="text-2xl font-black text-inova-on_surface leading-tight mb-2 group-hover:text-inova-primary transition-colors">{{ template.nombre }}</h3>
+                            <p class="text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-8">{{ 'Documento' if template.is_public else 'Matriz Interna' }}</p>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-inova-surface_variant pt-6 gap-3">
+                            <a href="{{ url_for('templates.start_report', template_id=template.id) }}" 
+                               @click="$dispatch('loading-show'); $el.style.pointerEvents = 'none';"
+                               class="flex-1 bg-inova-surface_low text-inova-primary hover:bg-inova-primary hover:text-white border border-inova-surface_variant text-center py-3 rounded-xl font-black text-xs transition-all active:scale-95 uppercase tracking-widest">Ejecutar</a>
+                               
+                            {% if current_user.is_admin or template.uploader_id == current_user.id %}
+                            <button @click.stop="deleteUrl = '{{ url_for('templates.delete_template', template_id=template.id) }}'; showDeleteModal = true" 
+                                class="p-3 bg-red-50 text-inova-error hover:bg-inova-error hover:text-white border border-transparent hover:border-inova-error text-center rounded-xl transition-all active:scale-95 group-hover:opacity-100 opacity-70">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- TAB: USERS -->
+            {% if current_user.is_admin %}
+            <div x-show="tab === 'users'" x-transition:enter="transition-all duration-300 ease-out" x-transition:enter-start="opacity-0 translate-y-2">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+                    <div>
+                        <h1 class="text-4xl font-black text-inova-primary tracking-tight leading-none mb-1">Directorio Operativo</h1>
+                        <p class="text-inova-on_surface_variant font-bold text-sm">Control jerárquico del personal.</p>
+                    </div>
+                    <button @click="showCreateModal = true" class="bg-inova-primary text-white px-8 py-4 rounded-3xl font-black text-[11px] uppercase tracking-widest hover:bg-inova-primary_container shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                        Alta de Elemento
+                    </button>
+                </div>
+
+                <!-- Desktop Table / Mobile Cards -->
+                <div class="hidden md:block bg-white rounded-3xl border border-inova-surface_variant overflow-hidden shadow-sm">
+                    <table class="min-w-full text-left">
+                        <thead class="bg-inova-surface_low border-b border-inova-surface_variant">
+                            <tr>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Colaborador</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Rol</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Reg. MFA</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-inova-surface_variant">
+                            {% for user in users %}
+                            <tr class="hover:bg-inova-surface_low/50 transition-colors">
+                                <td class="px-8 py-6 flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-full bg-inova-secondary_container text-inova-primary flex items-center justify-center font-black text-lg">{{ (user.nombre_completo or user.email)[0]|upper }}</div>
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-black text-inova-on_surface">{{ user.nombre_completo or user.email.split('@')[0] }}</span>
+                                        <span class="text-xs font-bold text-inova-on_surface_variant">{{ user.email }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-6">
+                                    <span class="px-3 py-1 bg-inova-surface_variant text-inova-on_surface_variant rounded-lg text-[10px] font-black uppercase tracking-widest">{{ user.role | replace('_', ' ') }}</span>
+                                </td>
+                                <td class="px-8 py-6">
+                                    <div x-data="{ show: false }" class="flex items-center gap-2">
+                                        <code class="text-[10px] font-bold bg-white border border-inova-surface_variant px-2 py-1 rounded" :class="show ? 'text-inova-primary' : 'text-transparent select-none blur-[2px]'">
+                                            <span x-text="show ? '{{ user.mfa_secret or '---' }}' : '••••••••'"></span>
+                                        </code>
+                                        <button @click="show = !show" class="text-inova-secondary hover:text-inova-primary p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-6 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        {% if user.invite_token %}
+                                        <a href="https://wa.me/{{ user.telefono }}?text={{ ('Acceso Operativo Inova:\n\n' + request.host_url + 'auth/setup/' + user.invite_token)|urlencode }}" target="_blank" class="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M...Z"/></svg> Enviar Acceso</a>
+                                        {% endif %}
+                                        <button @click="resetUrl = '{{ url_for('auth.reset_password', user_id=user.id) }}'; resetUserEmail = '{{ user.email }}'; showResetModal = true" class="p-2 bg-inova-surface_low text-inova-secondary rounded-lg hover:bg-inova-primary hover:text-white transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7..."></path></svg></button>
+                                        {% if user.id != current_user.id %}
+                                        <form action="{{ url_for('auth.delete_user', user_id=user.id) }}" method="POST"><button type="submit" class="p-2 text-inova-error hover:bg-red-50 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12..."></path></svg></button></form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Cards Fallback -->
+                <div class="md:hidden space-y-4">
+                    {% for user in users %}
+                    <div class="bg-white rounded-2xl p-5 border border-inova-surface_variant flex flex-col gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-inova-secondary_container text-inova-primary flex items-center justify-center font-black">{{ (user.nombre_completo or user.email)[0]|upper }}</div>
+                            <div class="flex flex-col">
+                                <span class="font-black text-sm">{{ user.nombre_completo or user.email.split('@')[0] }}</span>
+                                <span class="text-xs text-inova-on_surface_variant">{{ user.role }}</span>
+                            </div>
+                        </div>
+                        <div class="border-t border-inova-surface_variant pt-3 flex gap-2">
+                             <button @click="resetUrl = '{{ url_for('auth.reset_password', user_id=user.id) }}'; resetUserEmail = '{{ user.email }}'; showResetModal = true" class="flex-1 bg-inova-surface_low text-xs font-bold py-2 rounded-lg text-center">Reset Clave</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Alta Modal -->
+                <div x-show="showCreateModal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-inova-surface/80 backdrop-blur-md" style="display: none;">
+                    <div class="bg-white border border-inova-surface_variant rounded-[3rem] p-8 md:p-12 max-w-2xl w-full shadow-[0_20px_60px_rgba(0,0,0,0.1)] relative">
+                        <button @click="showCreateModal = false" class="absolute top-6 right-6 text-inova-secondary hover:text-inova-primary">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                        <h2 class="text-3xl font-black text-inova-primary tracking-tight mb-8">Nuevo Perfil Operativo</h2>
+                        <form action="{{ url_for('auth.create_user') }}" method="POST" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-1 pl-2">Nombre</label>
+                                    <input type="text" name="nombre_completo" required class="w-full bg-inova-surface_low border border-inova-surface_variant focus:border-inova-primary rounded-xl px-4 py-3 text-sm font-bold text-inova-on_surface outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-1 pl-2">Cargo</label>
+                                    <input type="text" name="puesto" required class="w-full bg-inova-surface_low border border-inova-surface_variant focus:border-inova-primary rounded-xl px-4 py-3 text-sm font-bold text-inova-on_surface outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-1 pl-2">Correo</label>
+                                    <input type="email" name="email" required class="w-full bg-inova-surface_low border border-inova-surface_variant focus:border-inova-primary rounded-xl px-4 py-3 text-sm font-bold text-inova-on_surface outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-inova-secondary uppercase tracking-widest mb-1 pl-2">WhatsApp</label>
+                                    <input type="tel" name="telefono" required class="w-full bg-inova-surface_low border border-inova-surface_variant focus:border-inova-primary rounded-xl px-4 py-3 text-sm font-bold text-inova-on_surface outline-none">
+                                </div>
+                            </div>
+                            <div class="pt-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <select name="role" class="w-full md:w-1/2 bg-white border border-inova-surface_variant text-inova-on_surface font-bold text-xs uppercase tracking-widest rounded-xl px-4 py-3">
+                                    <option value="tecnico">Técnico Operativo</option>
+                                    <option value="supervisor">Supervisor de Campo</option>
+                                    <option value="admin">Administrador Central</option>
+                                </select>
+                                <button type="submit" class="w-full md:w-auto bg-inova-primary text-white px-8 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-sm hover:scale-105 transition-transform">Crear Acceso</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- TAB: LOGS -->
+            {% if current_user.is_admin %}
+            <div x-show="tab === 'logs'" x-transition:enter="transition-all duration-300 ease-out" x-transition:enter-start="opacity-0 translate-y-2">
+                <div class="mb-8">
+                    <h1 class="text-4xl font-black text-inova-primary tracking-tight mb-1">Bitácora Global</h1>
+                    <p class="text-inova-on_surface_variant font-bold text-sm">Registro auditable del mes en curso.</p>
+                </div>
+                <div class="bg-white rounded-3xl border border-inova-surface_variant overflow-x-auto shadow-sm">
+                    <table class="min-w-full text-left whitespace-nowrap">
+                        <thead class="bg-inova-surface_low border-b border-inova-surface_variant">
+                            <tr>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Fecha y Hora</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Autor</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Tipificación</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-inova-secondary uppercase tracking-widest">Registro Específico</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-inova-surface_variant">
+                            {% for log in logs %}
+                            <tr class="hover:bg-inova-surface_low/50">
+                                <td class="px-8 py-4 text-xs font-bold text-inova-on_surface_variant">{{ log.timestamp|datetime_format }}</td>
+                                <td class="px-8 py-4 text-sm font-black text-inova-on_surface">{{ log.user.email.split('@')[0] }}</td>
+                                <td class="px-8 py-4">
+                                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase border
+                                        {{ 'bg-red-50 text-inova-error border-red-100' if 'ELIMINAD' in log.action else 'bg-green-50 text-green-700 border-green-100' if 'CREAD' in log.action else 'bg-inova-surface_low text-inova-primary border-inova-surface_variant' }}">
+                                        {{ log.action | replace('_', ' ') }}
+                                    </span>
+                                </td>
+                                <td class="px-8 py-4 text-xs text-inova-on_surface font-medium">{{ log.details }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Modals Shared (Delete & Reset) -->
+    <div x-show="showDeleteModal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-inova-surface/70 backdrop-blur-md" style="display: none;">
+        <div class="bg-white border border-inova-surface_variant rounded-[2rem] p-8 max-w-md w-full shadow-2xl text-center">
+            <h3 class="text-2xl font-black text-inova-error tracking-tight mb-2">Confirmar Borrado</h3>
+            <p class="text-sm text-inova-on_surface_variant mb-8">Esta captura desaparecerá definitivamente.</p>
+            <div class="flex gap-4">
+                <button @click="showDeleteModal = false" class="flex-1 px-4 py-3 bg-inova-surface_low text-inova-secondary rounded-xl font-black text-[11px] uppercase tracking-widest">Cancelar</button>
+                <form :action="deleteUrl" method="POST" class="flex-1"><button type="submit" class="w-full px-4 py-3 bg-inova-error text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md">Eliminar</button></form>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showResetModal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-inova-surface/70 backdrop-blur-md" style="display: none;">
+        <div class="bg-white border border-inova-surface_variant rounded-[2rem] p-8 max-w-md w-full shadow-2xl text-center">
+            <h3 class="text-2xl font-black text-inova-primary tracking-tight mb-1">Restablecer Clave</h3>
+            <p class="text-xs font-bold text-inova-secondary mb-8" x-text="resetUserEmail"></p>
+            <form :action="resetUrl" method="POST" class="space-y-4">
+                <input type="password" name="new_password" required class="w-full bg-inova-surface_low border border-inova-surface_variant focus:border-inova-primary rounded-xl px-4 py-3 text-center" placeholder="•••">
+                <div class="flex gap-4">
+                    <button type="button" @click="showResetModal = false" class="flex-1 py-3 bg-inova-surface_low text-inova-secondary rounded-xl font-black text-[11px] uppercase">Cancelar</button>
+                    <button type="submit" class="flex-1 py-3 bg-inova-primary text-white rounded-xl font-black text-[11px] uppercase shadow-md">Fijar Fichaje</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Documentos | INOVA Securite</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0F172A;
+            --secondary-color: #334155;
+            --accent-color: #FF6B00;
+            --text-light: #F8FAFC;
+        }
+        body { 
+            padding-top: 50px; 
+            padding-bottom: 50px;
+            background-color: var(--primary-color); 
+            color: var(--text-light); 
+            font-family: 'Inter', sans-serif;
+        }
+        .container { max-width: 800px; }
+        .card { 
+            background-color: var(--secondary-color); 
+            border: none; 
+            border-radius: 12px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+        .form-control, .form-select, .input-group-text { 
+            background-color: #1e293b; 
+            color: var(--text-light); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 8px;
+        }
+        .form-control:focus, .form-select:focus { 
+            background-color: #1e293b; 
+            color: var(--text-light); 
+            border-color: var(--accent-color); 
+            box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.25); 
+        }
+        .input-group-text {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .btn-primary { 
+            background-color: var(--accent-color); 
+            border-color: var(--accent-color); 
+            color: #fff; 
+            font-weight: 700;
+            border-radius: 50px;
+            text-transform: uppercase;
+            padding: 14px 32px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover { 
+            background-color: transparent; 
+            border-color: var(--accent-color); 
+            color: var(--accent-color);
+            transform: scale(0.98);
+        }
+        .text-accent { color: var(--accent-color); }
+        .btn-outline-info {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+        }
+        .btn-outline-info:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo-container img {
+            max-height: 80px;
+        }
+        hr.border-secondary {
+            border-color: rgba(255,255,255,0.1) !important;
+            margin: 30px 0;
+        }
+        .btn-dictate { border-color: #444; color: #adb5bd; }
+        .btn-dictate:hover { background-color: #3b3b3b; color: #fff; }
+        .btn-dictate.recording { background-color: #dc3545; color: #fff; border-color: #dc3545; animation: pulse 1.5s infinite; }
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo-container">
+                <img src="/static/logo.png" alt="INOVA Securite">
+            </div>
+            <h2 class="mb-4 text-center fw-bold" style="color: var(--white);">Generador de Documentos</h2>
+            <div class="card p-4 shadow">
+            <form id="docForm" action="/generar" method="POST" enctype="multipart/form-data">
+                <!-- Section 1: Selector -->
+                <div class="mb-4">
+                    <label for="plantilla" class="form-label fw-bold"><i class="bi bi-file-earmark-text me-2"></i>1. Seleccionar Plantilla</label>
+                    <select class="form-select" id="plantilla" name="plantilla" required>
+                        <option value="reporte_servicio" selected>Reporte de Servicio</option>
+                        <option value="contrato_min">Contrato Mínimo</option>
+                    </select>
+                </div>
+
+                <hr class="border-secondary">
+
+                <!-- Section 2: Datos Generales -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-building me-2"></i>2. Datos Generales</label>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="empresa" class="form-label">Nombre de la Empresa</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="empresa" name="empresa" required>
+                                <button class="btn btn-dictate" type="button" data-target="empresa" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="rfc" class="form-label">RFC</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="rfc" name="rfc" required>
+                                <button class="btn btn-dictate" type="button" data-target="rfc" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-4">
+                        <button type="button" class="btn btn-outline-info w-100 fw-bold shadow-sm" id="btn-ubicacion">
+                            <i class="bi bi-geo-alt-fill me-2"></i>Obtener ciudad, estado y CP automáticamente (GPS)
+                        </button>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="cp" class="form-label">Código Postal</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="cp" name="cp" required>
+                                <button class="btn btn-dictate" type="button" data-target="cp" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="estado" class="form-label">Estado</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="estado" name="estado" required>
+                                <button class="btn btn-dictate" type="button" data-target="estado" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="municipio" class="form-label">Municipio</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="municipio" name="municipio" required>
+                                <button class="btn btn-dictate" type="button" data-target="municipio" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <div class="input-group">
+                                <input type="tel" class="form-control" id="telefono" name="telefono" required>
+                                <button class="btn btn-dictate" type="button" data-target="telefono" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fecha" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="fecha" name="fecha" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="fachada" class="form-label">Imagen de Fachada (Opcional)</label>
+                        <input type="file" class="form-control" id="fachada" name="fachada" accept="image/*" capture="environment">
+                        <div class="form-text text-light opacity-75">Puede tomar una foto desde su móvil o subir un archivo.</div>
+                    </div>
+                </div>
+
+                <hr class="border-secondary">
+
+                <!-- Section 3: Detalles Específicos -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-list-check me-2"></i>3. Detalles Específicos</label>
+                    
+                    <!-- Dynamic Fields -->
+                    <div class="mb-3" id="campo-tecnico">
+                        <label for="tecnico" class="form-label">Técnico Asignado</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="tecnico" name="tecnico">
+                            <button class="btn btn-dictate" type="button" data-target="tecnico" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 d-none" id="campo-monto">
+                        <label for="monto" class="form-label">Monto (USD)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-light border-secondary">$</span>
+                            <input type="number" class="form-control" id="monto" name="monto" min="0" step="0.01">
+                            <button class="btn btn-dictate" type="button" data-target="monto" title="Dictar por voz"><i class="bi bi-mic"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-secondary">
+
+                <!-- Section 4: Acción -->
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fw-bold shadow">
+                        <i class="bi bi-file-earmark-word me-2"></i>Generar Documento y Descargar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS & Custom Logic -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Template Selection Logic ---
+            const plantillaSelect = document.getElementById('plantilla');
+            const campoTecnico = document.getElementById('campo-tecnico');
+            const campoMonto = document.getElementById('campo-monto');
+            const inputTecnico = document.getElementById('tecnico');
+            const inputMonto = document.getElementById('monto');
+
+            function toggleCampos() {
+                const seleccion = plantillaSelect.value;
+                if (seleccion === 'reporte_servicio') {
+                    campoTecnico.classList.remove('d-none');
+                    inputTecnico.setAttribute('required', 'required');
+                    
+                    campoMonto.classList.add('d-none');
+                    inputMonto.removeAttribute('required');
+                    inputMonto.value = '';
+                } else if (seleccion === 'contrato_min') {
+                    campoMonto.classList.remove('d-none');
+                    inputMonto.setAttribute('required', 'required');
+                    
+                    campoTecnico.classList.add('d-none');
+                    inputTecnico.removeAttribute('required');
+                    inputTecnico.value = '';
+                }
+            }
+
+            plantillaSelect.addEventListener('change', toggleCampos);
+            toggleCampos(); // Run on init
+
+            // --- Voice Recognition Logic ---
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                
+                recognition.lang = 'es-MX'; // Configured for Mexican Spanish
+                recognition.interimResults = false;
+                recognition.continuous = false;
+
+                let currentTargetInput = null;
+                let currentButton = null;
+
+                recognition.onstart = function() {
+                    if (currentButton) {
+                        currentButton.classList.add('recording');
+                        currentButton.querySelector('i').className = 'bi bi-mic-fill';
+                    }
+                };
+
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    if (currentTargetInput) {
+                        currentTargetInput.value = transcript;
+                    }
+                };
+
+                recognition.onerror = function(event) {
+                    console.error("Error en reconocimiento de voz:", event.error);
+                };
+
+                recognition.onend = function() {
+                    if (currentButton) {
+                        currentButton.classList.remove('recording');
+                        currentButton.querySelector('i').className = 'bi bi-mic';
+                    }
+                    currentTargetInput = null;
+                    currentButton = null;
+                };
+
+                document.querySelectorAll('.btn-dictate').forEach(button => {
+                    button.addEventListener('click', function() {
+                        if (this.classList.contains('recording')) {
+                            recognition.stop();
+                            return;
+                        }
+                        recognition.stop();
+                        
+                        const targetId = this.getAttribute('data-target');
+                        currentTargetInput = document.getElementById(targetId);
+                        currentButton = this;
+                        
+                        try {
+                            recognition.start();
+                        } catch(e) {
+                            console.error("Ya hay un reconocimiento en curso", e);
+                        }
+                    });
+                });
+            } else {
+                document.querySelectorAll('.btn-dictate').forEach(btn => btn.style.display = 'none');
+                console.warn("La API de reconocimiento de voz no está soportada en este navegador.");
+            }
+
+            // --- Geolocation Logic ---
+            const btnUbicacion = document.getElementById('btn-ubicacion');
+            if (btnUbicacion) {
+                btnUbicacion.addEventListener('click', function() {
+                    const btn = this;
+                    const originalText = btn.innerHTML;
+                    
+                    if (!navigator.geolocation) {
+                        alert("La geolocalización no está soportada en tu navegador.");
+                        return;
+                    }
+                    
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Buscando ubicación...';
+                    btn.disabled = true;
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            
+                            // Usar API de Nominatim (OpenStreetMap)
+                            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data && data.address) {
+                                        const addr = data.address;
+                                        document.getElementById('cp').value = addr.postcode || '';
+                                        document.getElementById('estado').value = addr.state || addr.region || '';
+                                        document.getElementById('municipio').value = addr.city || addr.town || addr.municipality || addr.village || addr.county || '';
+                                    } else {
+                                        alert("No se encontró la dirección exacta.");
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error Nominatim:", error);
+                                    alert("Error al conectar con el servicio de mapas.");
+                                })
+                                .finally(() => {
+                                    btn.innerHTML = originalText;
+                                    btn.disabled = false;
+                                });
+                        },
+                        (error) => {
+                            console.error("Error GPS", error);
+                            alert("No se pudo obtener la ubicación GPS. Verifica los permisos de tu navegador.");
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        },
+                        { enableHighAccuracy: true }
+                    );
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Enlace Seguro{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[75vh] w-full flex-col font-sans">
+    
+    <!-- Decorative BG Elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-inova-secondary_container/30 blur-[120px] rounded-full"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-inova-primary/5 blur-[100px] rounded-full"></div>
+    </div>
+
+    <!-- Login Container Glassmorphism -->
+    <div class="w-full max-w-[420px] bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-inova-surface_variant p-10 sm:p-12 relative overflow-hidden group">
+        
+        <!-- Hover Glow -->
+        <div class="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-inova-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center p-3 bg-inova-surface_low rounded-2xl border border-inova-surface_variant mb-6 shadow-sm">
+                <img src="https://inovasecurite.mx/Logo.png" alt="Inova Securité" class="h-12 w-auto object-contain">
+            </div>
+            <h2 class="text-2xl font-black text-inova-primary tracking-[0.1em] uppercase mb-2">Portal de Acceso</h2>
+            <p class="text-[10px] font-bold text-inova-primary_container uppercase tracking-[0.2em]">Plataforma Activa</p>
+        </div>
+
+        <form class="space-y-6" action="{{ url_for('auth.login') }}" method="POST">
+            <div class="space-y-1">
+                <label for="email" class="block text-[9px] font-black text-inova-on_surface_variant uppercase tracking-widest px-4">Correo Electrónico</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-inova-on_surface_variant/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    </div>
+                    <input id="email" name="email" type="email" autocomplete="email" required 
+                        class="block w-full pl-12 pr-4 py-4 bg-white border-2 border-inova-surface_variant rounded-2xl text-inova-on_surface placeholder:text-inova-on_surface_variant/50 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-inova-primary/10 focus:border-inova-primary transition-all hover:border-inova-primary" 
+                        placeholder="operador@inovasecurite.mx">
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label for="password" class="block text-[9px] font-black text-inova-on_surface_variant uppercase tracking-widest px-4">Clave de Seguridad</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-inova-on_surface_variant/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <input id="password" name="password" type="password" autocomplete="current-password" required 
+                        class="block w-full pl-12 pr-4 py-4 bg-white border-2 border-inova-surface_variant rounded-2xl text-inova-on_surface placeholder:text-inova-on_surface_variant/50 text-xl font-black tracking-widest focus:outline-none focus:ring-4 focus:ring-inova-primary/10 focus:border-inova-primary transition-all hover:border-inova-primary"
+                        placeholder="••••••••">
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="group relative w-full flex justify-center py-4 px-4 border border-inova-surface_variant rounded-2xl shadow-lg text-xs font-black text-white uppercase tracking-[0.2em] bg-inova-primary hover:bg-inova-primary_container focus:outline-none transition-all duration-300 overflow-hidden transform active:scale-95">
+                    <span class="absolute right-4 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </span>
+                    Iniciar Sesión 
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

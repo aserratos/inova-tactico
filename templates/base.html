@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestión Administrativa{% endblock %} | Inova Securité</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#00346f">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        inova: {
+                            surface: '#fcf9f2',
+                            surface_low: '#f6f3ec',
+                            surface_lowest: '#ffffff',
+                            surface_variant: '#e5e2db',
+                            primary: '#00346f',
+                            primary_container: '#004a99',
+                            on_surface: '#1c1c18',
+                            on_surface_variant: '#424751',
+                            secondary: '#48626e',
+                            secondary_container: '#cbe7f5',
+                            tertiary: '#5f2200',
+                            error: '#ba1a1a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Corporate Branding Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Alpine.js for Modern Tab & Nav Interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Chart.js for Analytics Layer -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom Clean Scrollbar for Light Mode */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #fcf9f2; }
+        ::-webkit-scrollbar-thumb { background: #c2c6d3; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #004a99; }
+    </style>
+</head>
+    
+    <!-- Offline Status Banner -->
+    <div id="offline-banner" class="hidden bg-orange-600 text-white text-[10px] font-black uppercase tracking-[0.2em] py-2 text-center sticky top-0 z-[100] animate-pulse">
+        ⚠️ Modo Offline Activado - Los cambios se guardarán localmente
+    </div>
+
+    {% if current_user.is_authenticated and session.get('mfa_verified') %}
+    <!-- Navbar Corporativo Ivory -->
+    <nav class="w-full bg-inova-surface/80 backdrop-blur-xl border-b border-inova-surface_variant sticky top-0 z-50">
+        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <div class="flex items-center space-x-6">
+                    <a href="{{ url_for('templates.dashboard') }}" class="flex items-center gap-4 group">
+                        <img src="https://inovasecurite.mx/Logo.png" alt="Inova Securité" class="h-10 w-auto object-contain">
+                        <div class="hidden sm:flex flex-col">
+                            <span class="text-sm font-black text-inova-primary_container tracking-tight">Arquitectura de Operaciones</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Notification Bell (Ivory Pro) -->
+                    <div x-data="notificationCenter()" x-init="init()" class="relative">
+                        <button @click="open = !open" class="w-10 h-10 rounded-xl bg-inova-surface_low border border-inova-surface_variant flex items-center justify-center text-inova-on_surface_variant hover:text-inova-primary transition-all relative">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                            <template x-if="unreadCount > 0">
+                                <span class="absolute -top-1 -right-1 w-5 h-5 bg-inova-error text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce" x-text="unreadCount"></span>
+                            </template>
+                        </button>
+                        
+                        <!-- Dropdown -->
+                        <div x-show="open" @click.away="open = false" 
+                             class="absolute right-0 mt-3 w-80 bg-white border border-inova-surface_variant rounded-[2rem] shadow-2xl z-[100] overflow-hidden"
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             style="display: none;">
+                            <div class="p-4 border-b border-inova-surface_variant bg-inova-surface_low flex justify-between items-center">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-inova-primary">Notificaciones</h4>
+                                <span class="text-[9px] font-bold text-inova-on_surface_variant" x-text="unreadCount + ' nuevas'"></span>
+                            </div>
+                            <div class="max-h-96 overflow-y-auto">
+                                <template x-for="n in notifications" :key="n.id">
+                                    <div @click="markAsRead(n)" class="p-4 border-b border-inova-surface_variant hover:bg-inova-surface_low cursor-pointer transition-colors group">
+                                        <div class="flex items-start gap-3">
+                                            <div :class="{
+                                                'p-2 rounded-lg bg-blue-50 text-inova-primary': n.type === 'assignment',
+                                                'p-2 rounded-lg bg-green-50 text-green-600': n.type === 'success',
+                                                'p-2 rounded-lg bg-inova-surface_variant text-inova-on_surface_variant': n.type === 'info'
+                                            }" class="mt-1">
+                                                <svg x-show="n.type === 'assignment'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                                <svg x-show="n.type !== 'assignment'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-xs font-black text-inova-on_surface group-hover:text-inova-primary transition-colors" x-text="n.title"></p>
+                                                <p class="text-[10px] font-bold text-inova-on_surface_variant mt-0.5" x-text="n.message"></p>
+                                                <span class="text-[9px] font-black text-inova-on_surface_variant/40 uppercase mt-2 block" x-text="n.time"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="notifications.length === 0">
+                                    <div class="p-8 text-center">
+                                        <p class="text-xs font-bold text-inova-on_surface_variant italic">Sin novedades por ahora</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex items-center gap-2 bg-inova-surface_low border border-inova-surface_variant px-4 py-2 rounded-xl">
+                        <span class="text-xs font-bold text-inova-on_surface_variant">
+                            {{ current_user.email.split('@')[0] }}
+                            {% if current_user.is_admin %}
+                            <span class="ml-2 text-[10px] bg-inova-secondary_container text-inova-primary px-2 py-0.5 rounded-full font-black uppercase tracking-wide">Admin</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" class="text-xs font-bold text-inova-on_surface_variant hover:text-inova-primary transition-colors flex items-center gap-2">
+                        Cerrar Sesión <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Contenedor Principal. Fluid to 1440px -->
+    <main class="w-full flex-grow flex flex-col max-w-[1440px] mx-auto p-4 sm:p-6 lg:p-8 relative">
+        
+        <!-- Flash Messages (Clean Ivory Style) -->
+        <div class="w-full max-w-5xl mx-auto mb-8 absolute top-4 left-1/2 -translate-x-1/2 z-[60]">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-4 mb-4 text-sm rounded-xl flex items-center gap-4 font-bold shadow-lg backdrop-blur-md border animate-[slideDown_0.3s_ease-out_forwards]
+                            {% if category == 'error' %}bg-white text-inova-error border-red-100 shadow-red-900/5
+                            {% elif category == 'success' %}bg-white text-[#105c31] border-green-100 shadow-green-900/5
+                            {% else %}bg-white text-inova-primary border-blue-100 shadow-blue-900/5{% endif %}">
+                            
+                            {% if category == 'error' %}
+                            <div class="p-2 bg-red-50 rounded-lg"><svg class="w-5 h-5 text-inova-error" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div>
+                            {% elif category == 'success' %}
+                            <div class="p-2 bg-green-50 rounded-lg"><svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                            {% else %}
+                            <div class="p-2 bg-blue-50 rounded-lg"><svg class="w-5 h-5 text-inova-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                            {% endif %}
+                            
+                            <div class="flex-1 tracking-tight">{{ message }}</div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div x-data="{ loading: false }" 
+             x-show="loading" 
+             @loading-show.window="loading = true" 
+             @loading-hide.window="loading = false"
+             class="fixed inset-0 z-[100] flex items-center justify-center bg-inova-surface/70 backdrop-blur-md"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-end="opacity-0"
+             style="display: none;">
+            <div class="p-12 flex flex-col items-center bg-white shadow-2xl rounded-3xl border border-inova-surface_variant">
+                <div class="relative w-16 h-16 mb-6">
+                    <div class="absolute inset-0 rounded-full border-4 border-inova-surface_low"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-t-inova-primary animate-spin"></div>
+                </div>
+                <h2 class="text-xl font-black text-inova-primary_container tracking-tight mb-1">Cargando Plataforma</h2>
+                <p class="text-xs font-bold text-inova-on_surface_variant uppercase tracking-widest animate-pulse">Optimizando datos...</p>
+            </div>
+        </div>
+
+        <!-- Notification Toast System -->
+        <div x-data="toastManager()" @new-notification.window="addToast($event.detail)" 
+             class="fixed bottom-10 right-10 z-[150] flex flex-col gap-4 pointer-events-none">
+            <template x-for="toast in toasts" :key="toast.id">
+                <div class="bg-inova-primary text-white p-6 rounded-[2rem] shadow-2xl border border-white/20 flex items-center gap-6 pointer-events-auto max-w-sm animate-[slideUp_0.4s_ease-out_forwards]"
+                     x-transition:leave="transition ease-in duration-300"
+                     x-transition:leave-end="opacity-0 translate-x-12">
+                    <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60" x-text="toast.title"></p>
+                        <p class="text-sm font-bold mt-1" x-text="toast.message"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="py-8 text-center w-full mt-auto">
+        <p class="text-xs font-bold text-inova-on_surface_variant tracking-tight">
+            &copy; 2026 Inova Securité. Arquitectura de Operaciones y Mando.
+        </p>
+    </footer>
+
+    <style>
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f6f3ec 25%, #e5e2db 50%, #f6f3ec 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite linear;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+    <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js').then(reg => {
+                    console.log('Ivory SW registrado:', reg.scope);
+                }).catch(err => {
+                    console.error('SW fallo:', err);
+                });
+            });
+        }
+
+        // Offline / Online detection
+        function updateOnlineStatus() {
+            const banner = document.getElementById('offline-banner');
+            if (navigator.onLine) {
+                banner.classList.add('hidden');
+            } else {
+                banner.classList.remove('hidden');
+            }
+        }
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+
+        // Ivory Real-Time Notification Logic
+        function notificationCenter() {
+            return {
+                open: false,
+                unreadCount: 0,
+                notifications: [],
+                init() {
+                    this.poll();
+                    setInterval(() => this.poll(), 30000); // Cada 30 seg
+                },
+                async poll() {
+                    try {
+                        const res = await fetch('/api/notifications/unread');
+                        const data = await res.json();
+                        
+                        // Check for new notifications to trigger toast
+                        const newCount = data.count || 0;
+                        if (newCount > this.unreadCount) {
+                            const latest = data.notifications[0];
+                            if (latest) {
+                                document.dispatchEvent(new CustomEvent('new-notification', { detail: latest }));
+                            }
+                        }
+                        
+                        this.unreadCount = newCount;
+                        this.notifications = data.notifications || [];
+                    } catch (e) {
+                        console.error('Error polling notifs:', e);
+                    }
+                },
+                async markAsRead(n) {
+                    try {
+                        await fetch(`/api/notifications/read/${n.id}`, { method: 'POST' });
+                        if (n.link) window.location.href = n.link;
+                        else this.poll();
+                    } catch (e) {
+                        console.error('Error marking as read:', e);
+                    }
+                }
+            }
+        }
+
+        function toastManager() {
+            return {
+                toasts: [],
+                addToast(n) {
+                    const id = Date.now();
+                    this.toasts.push({ ...n, id });
+                    setTimeout(() => {
+                        this.toasts = this.toasts.filter(t => t.id !== id);
+                    }, 5000);
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte: {{ report.nombre }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl mx-auto py-10 px-4" x-data="{ 
+    step: 1, 
+    totalSteps: 3,
+    progress() { return (this.step / this.totalSteps) * 100 }
+}">
+    
+    <div class="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-inova-surface_variant pb-8">
+        <div class="flex items-center gap-6">
+            <a href="{{ url_for('templates.dashboard') }}" class="w-12 h-12 rounded-2xl bg-white border border-inova-surface_variant flex items-center justify-center text-inova-on_surface_variant hover:text-inova-primary hover:border-inova-primary transition-all transform hover:-translate-x-1 shadow-sm">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </a>
+            <div>
+                <h1 class="text-2xl font-black text-inova-primary flex items-center gap-2 tracking-tighter">
+                    Levantamiento: <span class="text-inova-on_surface font-normal">{{ report.nombre }}</span>
+                </h1>
+                <p class="text-[11px] text-inova-on_surface_variant font-black uppercase tracking-widest mt-1">Avance Operativo: {{ report.porcentaje_avance }}% ({{ (report.total_campos * report.porcentaje_avance / 100)|int }} de {{ report.total_campos }} campos)</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+             <div class="hidden md:flex flex-col items-end gap-1 mr-4">
+                <span class="text-[9px] font-black text-inova-secondary uppercase tracking-widest">Progreso de Captura</span>
+                <div class="w-48 h-2 bg-inova-surface_variant rounded-full overflow-hidden">
+                    <div class="h-full bg-inova-primary transition-all duration-500" :style="'width: ' + progress() + '%'"></div>
+                </div>
+             </div>
+             {% if report.status == 'por_hacer' %}
+             <span class="px-4 py-2 rounded-xl text-[10px] font-black bg-inova-surface_variant text-inova-on_surface_variant uppercase tracking-widest flex items-center gap-2">📝 Por Hacer</span>
+             {% elif report.status == 'en_ejecucion' %}
+             <span class="px-4 py-2 rounded-xl text-[10px] font-black bg-blue-50 text-inova-primary border border-blue-100 uppercase tracking-widest flex items-center gap-2">⚡ En Ejecución</span>
+             {% elif report.status == 'pendiente' %}
+             <span class="px-4 py-2 rounded-xl text-[10px] font-black bg-orange-50 text-orange-600 border border-orange-100 uppercase tracking-widest flex items-center gap-2">⏳ Pendiente</span>
+             {% elif report.status == 'terminado' %}
+             <span class="px-4 py-2 rounded-xl text-[10px] font-black bg-green-50 text-green-600 border border-green-100 uppercase tracking-widest flex items-center gap-2">✅ Terminado</span>
+             {% endif %}
+        </div>
+    </div>
+
+    <form id="reportForm" action="{{ url_for('templates.save_report', instance_id=report.id) }}" method="POST" enctype="multipart/form-data">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-12">
+            
+            <!-- Main Form Section -->
+            <!-- Step 1: Text Data -->
+            <div class="lg:col-span-3 space-y-12" x-show="step === 1" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4">
+                <section class="bg-white p-8 md:p-12 rounded-[3rem] border border-inova-surface_variant shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="w-8 h-8 rounded-lg bg-inova-primary text-white flex items-center justify-center text-xs font-black">01</span>
+                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-inova-primary_container">Datos del Levantamiento</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        {% for var in text_vars %}
+                        <div class="group">
+                            <label for="{{ var }}" class="block text-[11px] font-black text-inova-on_surface_variant uppercase tracking-widest mb-2 group-focus-within:text-inova-primary transition-colors">
+                                {{ var | replace('_', ' ') }}
+                            </label>
+                            <div class="relative">
+                                <input type="text" name="{{ var }}" id="{{ var }}" 
+                                    value="{{ saved_data.get(var, '') }}"
+                                    class="w-full bg-white border-2 border-inova-surface_variant focus:border-inova-primary focus:ring-4 focus:ring-inova-primary/10 rounded-2xl px-6 py-5 text-base font-bold text-inova-on_surface transition-all outline-none shadow-sm placeholder:text-inova-on_surface_variant/50"
+                                    placeholder="Escribir aquí...">
+                                <button type="button" onclick="startVoice('{{ var }}')" class="absolute right-4 top-1/2 -translate-y-1/2 text-inova-on_surface_variant hover:text-inova-primary transition-colors">
+                                    <svg id="mic-{{ var }}" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-20a3 3 0 013 3v5a3 3 0 01-6 0V5a3 3 0 01-6 0V5a3 3 0 013-3z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                
+                <div class="flex justify-end pt-8">
+                    <button type="button" @click="step = 2; window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-inova-primary text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                        Siguiente: Fotografías
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Photos -->
+            <div class="lg:col-span-3 space-y-12" x-show="step === 2" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" style="display:none;">
+                <section class="bg-white p-8 md:p-12 rounded-[3rem] border border-inova-surface_variant shadow-sm">
+                    <div class="flex items-center gap-3 mb-10">
+                        <span class="w-8 h-8 rounded-lg bg-inova-primary text-white flex items-center justify-center text-xs font-black">02</span>
+                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-inova-primary_container">Registro de Evidencias Fotográficas</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {% for var in image_vars %}
+                        <div class="space-y-3">
+                            <label class="block text-[11px] font-black text-inova-on_surface_variant uppercase tracking-widest">
+                                {{ var | replace('_', ' ') }}
+                            </label>
+                            <div class="relative h-64 group bg-inova-surface_low rounded-3xl overflow-hidden border-2 border-dashed border-inova-surface_variant hover:border-inova-primary transition-all cursor-pointer">
+                                <input type="file" name="{{ var }}" id="{{ var }}" accept="image/*" capture="environment" 
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    onchange="previewImage(this, '{{ var }}')">
+                                
+                                {% set has_image = saved_data.get(var) %}
+                                <div id="content-{{ var }}" class="absolute inset-0 flex flex-col items-center justify-center p-8 {{ 'hidden' if has_image else '' }}">
+                                    <div class="w-16 h-16 rounded-3xl bg-white border border-inova-surface_variant shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500">
+                                        <svg class="w-8 h-8 text-inova-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                                    </div>
+                                    <p class="text-[10px] font-black text-inova-on_surface_variant uppercase tracking-widest">Añadir Fotografía</p>
+                                </div>
+                                <img id="img-preview-{{ var }}" class="{{ '' if has_image else 'hidden' }} absolute inset-0 w-full h-full object-cover rounded-3xl transition-transform duration-700 hover:scale-105"
+                                    {% if has_image %}src="{{ url_for('templates.report_media', instance_id=report.id, var_name=var) }}"{% endif %}>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <div class="flex justify-between pt-8">
+                    <button type="button" @click="step = 1; window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-inova-surface_low text-inova-secondary px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest border border-inova-surface_variant">Anterior</button>
+                    <button type="button" @click="step = 3; window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-inova-primary text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                        Siguiente: Gestión
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Global Controls & Finalization (Sidebar content moved inside for Step 3) -->
+            <div class="lg:col-span-3 space-y-12" x-show="step === 3" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" style="display:none;">
+                 <section class="bg-white p-8 md:p-12 rounded-[3rem] border border-inova-surface_variant shadow-sm">
+                    <div class="flex items-center gap-3 mb-10">
+                        <span class="w-8 h-8 rounded-lg bg-inova-primary text-white flex items-center justify-center text-xs font-black">03</span>
+                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-inova-primary_container">Gestión Operativa y Cierre</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div class="space-y-8">
+                            <div>
+                                <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-4 tracking-[0.2em]">Estado de Operación</label>
+                                <select name="_status" class="w-full bg-inova-surface_low border-2 border-inova-surface_variant text-inova-on_surface text-sm font-bold rounded-2xl px-6 py-4 appearance-none focus:border-inova-primary outline-none transition-all">
+                                    <option value="por_hacer" {{ 'selected' if report.status == 'por_hacer' else '' }}>📝 Por Hacer</option>
+                                    <option value="en_ejecucion" {{ 'selected' if report.status == 'en_ejecucion' else '' }}>⚡ En Ejecución</option>
+                                    <option value="pendiente" {{ 'selected' if report.status == 'pendiente' else '' }}>⏳ Pendiente</option>
+                                    <option value="terminado" {{ 'selected' if report.status == 'terminado' else '' }}>✅ Terminado</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-4 tracking-[0.2em]">Responsable Asignado</label>
+                                <select name="_assigned_to" class="w-full bg-inova-surface_low border-2 border-inova-surface_variant text-sm font-black rounded-2xl px-6 py-4 uppercase tracking-tighter focus:border-inova-primary outline-none transition-all">
+                                    {% for user in all_users %}
+                                    <option value="{{ user.id }}" {{ 'selected' if report.assigned_to_id == user.id else '' }}>{{ user.email.split('@')[0] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-4 tracking-[0.2em]">Observaciones Finales / Pendientes</label>
+                            <textarea name="_comentarios" rows="8" class="w-full bg-inova-surface_low border-2 border-inova-surface_variant text-inova-on_surface text-sm font-bold rounded-2xl px-6 py-4 placeholder:text-inova-on_surface_variant/50 resize-none focus:border-inova-primary outline-none transition-all" placeholder="Describe aquí detalles adicionales...">{{ report.comentarios }}</textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="flex flex-col md:flex-row justify-between gap-6 pt-8">
+                    <button type="button" @click="step = 2; window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-inova-surface_low text-inova-secondary px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest border border-inova-surface_variant">Anterior</button>
+                    
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <button type="submit" @click="$dispatch('loading-show')" class="bg-white border-2 border-inova-surface_variant text-inova-primary font-black px-10 py-5 rounded-2xl text-[11px] uppercase tracking-widest hover:bg-inova-surface_low transition shadow-sm">
+                            Guardar Avance
+                        </button>
+                        
+                        <button type="submit" @click="$dispatch('loading-show'); setTimeout(() => $dispatch('loading-hide'), 3000)" onclick="this.form.action='{{ url_for('templates.compile_report', instance_id=report.id) }}'" class="bg-inova-primary text-white font-black px-12 py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-inova-primary_container transition shadow-xl transform active:scale-95 shadow-inova-primary/20">
+                            Finalizar y Exportar Word
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hide original sidebar in Wizard mode -->
+            <div class="hidden">
+                 <div class="lg:col-span-1">
+
+                <div class="sticky top-10 space-y-8">
+                    <!-- Global Controls -->
+                    <!-- Global Controls -->
+                    <div class="bg-white border border-inova-surface_variant rounded-[2.5rem] p-8 shadow-xl">
+                        <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-inova-primary">Gestión Operativa</h3>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-2 tracking-[0.2em]">Estado de Operación</label>
+                                <select name="_status" class="w-full bg-inova-surface_low border-none text-inova-on_surface text-xs font-bold rounded-xl px-4 py-3 appearance-none ring-1 ring-inova-surface_variant">
+                                    <option value="por_hacer" {{ 'selected' if report.status == 'por_hacer' else '' }}>📝 Por Hacer</option>
+                                    <option value="en_ejecucion" {{ 'selected' if report.status == 'en_ejecucion' else '' }}>⚡ En Ejecución</option>
+                                    <option value="pendiente" {{ 'selected' if report.status == 'pendiente' else '' }}>⏳ Pendiente</option>
+                                    <option value="terminado" {{ 'selected' if report.status == 'terminado' else '' }}>✅ Terminado</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-2 tracking-[0.2em]">Pendientes Operativos</label>
+                                <textarea name="_comentarios" rows="4" class="w-full bg-inova-surface_low border-none text-inova-on_surface text-xs font-bold rounded-xl px-4 py-3 placeholder:text-inova-on_surface_variant/50 resize-none ring-1 ring-inova-surface_variant" placeholder="Escribe aquí qué falta...">{{ report.comentarios }}</textarea>
+                            </div>
+
+                            <div class="pt-6 space-y-4">
+                                <button type="submit" @click="$dispatch('loading-show')" class="w-full bg-inova-surface_low text-inova-primary font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest hover:bg-inova-surface_variant/50 transition shadow-sm border border-inova-surface_variant">
+                                    Guardar Avance
+                                </button>
+                                
+                                <button type="submit" @click="$dispatch('loading-show'); setTimeout(() => $dispatch('loading-hide'), 3000)" onclick="this.form.action='{{ url_for('templates.compile_report', instance_id=report.id) }}'" class="w-full bg-inova-primary text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-inova-primary_container transition shadow-xl transform active:scale-95 shadow-inova-primary/20">
+                                    Finalizar Word
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-8 bg-inova-surface_low rounded-[2.5rem] border border-inova-surface_variant shadow-inner">
+                        <label class="block text-[11px] uppercase font-black text-inova-on_surface_variant mb-4 tracking-tighter">Re-asignar Responsable</label>
+                        <select name="_assigned_to" class="w-full bg-white border border-inova-surface_variant text-[11px] font-black rounded-xl px-4 py-3 uppercase tracking-tighter shadow-sm text-inova-on_surface">
+                            {% for user in all_users %}
+                            <option value="{{ user.id }}" {{ 'selected' if report.assigned_to_id == user.id else '' }}>{{ user.email.split('@')[0] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const reportId = '{{ report.id }}';
+        const inputs = document.querySelectorAll('input[type="text"], input[type="date"], textarea, select');
+        
+        // --- 💾 Lógica de Persistencia Local ---
+        const storageKey = `ivory_report_${reportId}`;
+        
+        // Guardar automáticamente al escribir
+        const saveToLocal = () => {
+            const formData = {};
+            inputs.forEach(input => {
+                if (input.type !== 'file') {
+                    formData[input.name] = input.value;
+                }
+            });
+            localStorage.setItem(storageKey, JSON.stringify(formData));
+        };
+
+        // Restaurar si existe data previa
+        const savedData = localStorage.getItem(storageKey);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            Object.keys(data).forEach(key => {
+                const input = document.querySelector(`[name="${key}"]`);
+                if (input && !input.value) { // Solo restaurar si el campo está vacío (ej. tras refresh sin POST)
+                    input.value = data[key];
+                }
+            });
+        }
+
+        // --- 🛠️ Filtros y Reglas Operativas ---
+            inputs.forEach(input => {
+                const name = (input.name || '').toUpperCase();
+                let hasSpecialRule = false;
+                
+                input.addEventListener('input', saveToLocal);
+                
+                // 🔐 Regla OPERATIVA: RFC (Mayúsculas y Alfanumérico)
+                if (name.includes('RFC')) {
+                    hasSpecialRule = true;
+                    input.addEventListener('input', (e) => {
+                        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    });
+                }
+                
+                // 🔐 Regla OPERATIVA: Teléfonos (Solo Números)
+                if (name.includes('TEL') || name.includes('CELULAR') || name.includes('TELEFONO')) {
+                    hasSpecialRule = true;
+                    input.addEventListener('input', (e) => {
+                        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    });
+                }
+
+                // 📅 Regla OPERATIVA: Fechas (Selector Nativo)
+                if (name.includes('FECHA') || name.includes('DATE')) {
+                    hasSpecialRule = true;
+                    input.type = 'date';
+                    
+                    // Pre-llenado inteligente si es el día de hoy
+                    if (name.includes('HOY') && !input.value) {
+                        input.value = new Date().toISOString().split('T')[0];
+                    }
+
+                    // Mensaje de Guía Cronológica
+                    const hint = document.createElement('span');
+                    hint.className = 'text-[9px] font-black text-inova-primary uppercase tracking-widest mt-2 block';
+                    hint.innerHTML = '<span class="mr-1 shadow-sm">📅</span> Selección de Fecha (Texto largo en Word)';
+                    input.parentNode.appendChild(hint);
+                }
+
+                // ✨ Regla GLOBAL: Identidad de Captura (Para todos los campos)
+                if (!hasSpecialRule) {
+                    input.addEventListener('input', (e) => {
+                        let val = e.target.value;
+                        if (val.length > 0) {
+                            // Asegura que la primera letra sea siempre MAYÚSCULA
+                            e.target.value = val.charAt(0).toUpperCase() + val.slice(1);
+                        }
+                    });
+                }
+
+                // 🧹 Limpieza de Espacios (Al salir del campo)
+                input.addEventListener('blur', (e) => {
+                    e.target.value = e.target.value.trim().replace(/\s+/g, ' ');
+                    saveToLocal();
+                });
+            });
+
+        // Interceptar Envío
+        document.getElementById('reportForm').addEventListener('submit', (e) => {
+            if (!navigator.onLine) {
+                e.preventDefault();
+                alert("⚠️ No tienes conexión a internet. Tus datos están guardados localmente en este dispositivo. Por favor, intenta de nuevo cuando recuperes la señal.");
+                document.dispatchEvent(new CustomEvent('loading-hide'));
+            } else {
+                // Si hay éxito, limpiar localstorage (esto requiere manejarlo tras el reload real, 
+                // pero por ahora lo dejamos así o lo hacemos al cargarse con éxito desde el servidor)
+            }
+        });
+    });
+
+    function previewImage(input, varName) {
+        const preview = document.getElementById('img-preview-' + varName);
+        const content = document.getElementById('content-' + varName);
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                content.classList.add('hidden');
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function startVoice(id) {
+        const input = document.getElementById(id);
+        const mic = document.getElementById('mic-' + id);
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return;
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es-MX';
+        mic.classList.add('text-inova-primary', 'animate-pulse');
+        recognition.onresult = (e) => { input.value = e.results[0][0].transcript; };
+        recognition.onend = () => { mic.classList.remove('text-inova-primary', 'animate-pulse'); };
+        recognition.start();
+    }
+</script>
+{% endblock %}

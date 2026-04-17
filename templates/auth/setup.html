@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración Táctica | Inova Securité{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[75vh] w-full flex-col font-sans">
+    
+    <!-- Decorative BG Elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-inova-secondary_container/30 blur-[120px] rounded-full"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-inova-primary/5 blur-[100px] rounded-full"></div>
+    </div>
+
+    <!-- Setup Container Glassmorphism -->
+    <div class="w-full max-w-lg bg-white/80 backdrop-blur-2xl rounded-[3rem] shadow-2xl border border-inova-surface_variant p-10 sm:p-14 relative overflow-hidden group">
+        
+        <!-- Hover Glow -->
+        <div class="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-inova-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+
+        {% if error %}
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-red-50 text-inova-error border border-red-100/50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h2 class="text-2xl font-black text-inova-primary tracking-tight uppercase">{{ error }}</h2>
+                <p class="text-[11px] font-bold text-inova-on_surface_variant mt-2 uppercase tracking-widest">Error al configurar MFA.</p>
+                <a href="{{ url_for('auth.login') }}" class="mt-8 inline-block px-8 py-3 bg-white text-inova-primary rounded-xl font-black text-[10px] uppercase tracking-[0.2em] border border-inova-surface_variant hover:bg-inova-surface_low transition shadow-sm">Ir a Identificación</a>
+            </div>
+        {% else %}
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <div class="w-14 h-14 bg-inova-surface_low border border-inova-surface_variant rounded-[1.2rem] flex items-center justify-center mx-auto mb-6 shadow-sm text-inova-primary">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A10.003 10.003 0 0112 3c1.268 0 2.39.234 3.41.659m-4.74 11.42a2 2 0 002.712 1.257m1.257-2.712a2 2 0 00-1.257-2.712m1.453-4.41a2 2 0 012.712 1.257m-1.257 2.712a2 2 0 01-2.712-1.257m0 0a2 2 0 01-2.712-1.257m1.257 2.712a2 2 0 01-1.257 2.712"></path></svg>
+                </div>
+                <h1 class="text-3xl font-black text-inova-primary tracking-tighter uppercase mb-2">Bienvenido</h1>
+                <p class="text-[10px] font-black text-inova-primary uppercase tracking-[0.2em] px-4 py-1 bg-inova-primary/5 border border-inova-surface_variant rounded-full inline-block">{{ user.email }}</p>
+            </div>
+
+            <!-- Paso 1: MFA QR -->
+            <div class="bg-inova-surface_low rounded-3xl p-8 mb-8 border border-inova-surface_variant text-center">
+                <h3 class="text-[10px] font-black text-inova-on_surface_variant uppercase tracking-[0.3em] mb-6 flex items-center justify-center gap-2">
+                    <span class="w-4 h-4 rounded-sm bg-inova-primary text-white flex items-center justify-center text-[8px]">01</span>
+                    Vincular MFA
+                </h3>
+                <div class="bg-white p-2 rounded-2xl inline-block shadow-md mb-6 transition-transform hover:scale-105 duration-300 border border-inova-surface_variant">
+                    <img src="https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl={{ provisioning_uri|urlencode }}" 
+                         alt="MFA QR Code" 
+                         class="mx-auto rounded-lg">
+                </div>
+                <p class="text-[10px] font-bold text-inova-on_surface_variant uppercase tracking-widest px-4">Escanea con Microsoft Authenticator o Google Authenticator.</p>
+            </div>
+
+            <!-- Paso 2: Crear Contraseña -->
+            <form method="POST" class="space-y-6">
+                <div>
+                    <h3 class="text-[10px] font-black text-inova-on_surface_variant uppercase tracking-[0.3em] mb-4 text-center flex items-center justify-center gap-2">
+                        <span class="w-4 h-4 rounded-sm bg-inova-primary text-white flex items-center justify-center text-[8px]">02</span>
+                        Crear Clave de Acceso
+                    </h3>
+                    <div class="relative">
+                        <input type="password" name="password" required autofocus
+                               class="w-full bg-white border-2 border-inova-surface_variant focus:border-inova-primary focus:ring-4 focus:ring-inova-primary/10 rounded-2xl px-6 py-5 text-center font-black text-xl text-inova-on_surface transition-all placeholder:text-inova-on_surface_variant/50 shadow-sm" 
+                               placeholder="••••••••">
+                    </div>
+                </div>
+                
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-inova-primary shadow-lg text-white font-black py-5 rounded-2xl text-[11px] uppercase tracking-[0.2em] hover:bg-inova-primary_container transition-all transform active:scale-95 flex items-center justify-center gap-3">
+                        Activar Cuenta
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
