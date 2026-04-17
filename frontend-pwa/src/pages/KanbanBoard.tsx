@@ -21,7 +21,7 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     // Fetches the real data from Flask
-    fetch('http://localhost:8001/api/reports', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Error al cargar datos. ¿Sesión iniciada?');
         return res.json();
@@ -44,7 +44,7 @@ export default function KanbanBoard() {
     if (!confirm('¿Deseas enviar a generar el reporte final en Word?')) return;
     
     try {
-      const res = await fetch(`http://localhost:8001/api/report/compile/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/compile/${id}`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -62,7 +62,7 @@ export default function KanbanBoard() {
   const handleDownload = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`http://localhost:8001/api/report/download/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/download/${id}`, {
         credentials: 'include'
       });
       

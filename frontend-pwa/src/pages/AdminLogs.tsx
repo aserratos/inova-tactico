@@ -15,7 +15,7 @@ export default function AdminLogs() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8001/auth/api/admin/logs', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/logs`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.logs) setLogs(data.logs);

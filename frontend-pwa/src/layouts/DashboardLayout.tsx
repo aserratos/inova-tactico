@@ -8,7 +8,7 @@ export default function DashboardLayout() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:8001/auth/api/session', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/session`, { credentials: 'include' })
       .then(res => {
         if (res.ok) {
           setIsAuthenticated(true);
@@ -26,7 +26,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8001/auth/api/logout', { method: 'POST', credentials: 'include' });
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/logout`, { method: 'POST', credentials: 'include' });
       window.location.href = '/login';
     } catch (e) {
       window.location.href = '/login';

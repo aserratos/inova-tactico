@@ -32,7 +32,7 @@ export default function ReportCapture() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`http://localhost:8001/api/report/${id}`, { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setReport(data);
@@ -42,7 +42,7 @@ export default function ReportCapture() {
         const previews: Record<string, string> = {};
         data.image_vars.forEach((v: string) => {
           if (data.saved_data[v]) {
-            previews[v] = `http://localhost:8001/report/media/${id}/${v}`;
+            previews[v] = `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/report/media/${id}/${v}`;
           }
         });
         setImagePreviews(previews);
@@ -136,7 +136,7 @@ export default function ReportCapture() {
     });
 
     try {
-      const res = await fetch(`http://localhost:8001/api/report/save/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`, {
         method: 'POST',
         body: formDataPayload,
         credentials: 'include'

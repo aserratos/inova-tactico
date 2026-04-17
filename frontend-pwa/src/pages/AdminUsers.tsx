@@ -24,7 +24,7 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:8001/auth/api/admin/users', { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/users`, { credentials: 'include' });
       const data = await res.json();
       if (res.ok) setUsers(data.users || []);
     } catch (e) {
@@ -39,7 +39,7 @@ export default function AdminUsers() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:8001/auth/api/admin/users/create', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/users/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -61,7 +61,7 @@ export default function AdminUsers() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
     try {
-      const res = await fetch(`http://localhost:8001/auth/api/admin/users/delete/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/users/delete/${id}`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -76,7 +76,7 @@ export default function AdminUsers() {
     const newPass = prompt("Ingresa la nueva contraseña (min 8 caracteres):");
     if (!newPass) return;
     try {
-      const res = await fetch(`http://localhost:8001/auth/api/admin/users/reset/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/users/reset/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
