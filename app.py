@@ -77,8 +77,9 @@ def create_app():
     return app
 
 
+app = create_app()
+with app.app_context():
+    db.create_all()
+
 if __name__ == '__main__':
-    app = create_app()
-    with app.app_context():
-        db.create_all()
     app.run(host='0.0.0.0', port=8001, debug=True, use_reloader=False)
