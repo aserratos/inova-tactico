@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Mic, MicOff, Save, ChevronLeft } from 'lucide-react';
+import { db } from '../lib/db';
 
 interface ReportDetails {
   id: number;
@@ -136,6 +137,34 @@ export default function ReportCapture() {
     });
 
     try {
+      if (!navigator.onLine) {
+        // Modo Offline: Guardar en Dexie y salir
+        const payloadObject: Record<string, any> = {};
+        formDataPayload.forEach((value, key) => {
+          payloadObject[key] = value;
+        });
+
+        await db.syncQueue.add({
+          url: `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`,
+          method: 'POST',
+          payload: payloadObject,
+          isFormData: true,
+          timestamp: new Date().toISOString(),
+          status: 'pending',
+          retryCount: 0
+        });
+
+        // Update the cached report visually
+        const cached = await db.cachedReports.get(Number(id));
+        if (cached) {
+          await db.cachedReports.update(Number(id), { status: 'terminado', porcentaje_avance: 100 });
+        }
+
+        alert("Sin conexión: Guardado en tu dispositivo. Se enviará a la nube al recuperar señal.");
+        navigate('/');
+        return;
+      }
+
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`, {
         method: 'POST',
         body: formDataPayload,

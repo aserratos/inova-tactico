@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Camera, LogOut, Users, FileText, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { SyncEngine } from '../components/SyncEngine';
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -44,6 +45,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-corporate-light flex flex-col md:flex-row">
+      <SyncEngine />
       {/* Sidebar para Escritorio */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-screen sticky top-0 shadow-sm">
         <div className="p-6">

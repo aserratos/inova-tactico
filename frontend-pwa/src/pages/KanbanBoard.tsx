@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileDown, FileCog } from 'lucide-react';
+import { db } from '../lib/db';
 
 interface Report {
   id: number;
@@ -20,20 +21,33 @@ export default function KanbanBoard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetches the real data from Flask
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' })
-      .then(res => {
-        if (!res.ok) throw new Error('Error al cargar datos. ¿Sesión iniciada?');
-        return res.json();
-      })
-      .then(data => {
+    const fetchReports = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Error de servidor o sesión expirada');
+        
+        const data = await res.json();
         setReports(data.reports);
+        
+        // Save to offline cache
+        await db.cachedReports.clear();
+        await db.cachedReports.bulkAdd(data.reports);
         setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
+      } catch (err: any) {
+        // Fallback to offline cache
+        console.warn("No se pudo conectar al servidor. Cargando caché offline...");
+        const cached = await db.cachedReports.toArray();
+        if (cached && cached.length > 0) {
+          setReports(cached);
+          setError("Modo Sin Conexión - Mostrando datos guardados localmente");
+        } else {
+          setError(err.message || "Error de conexión");
+        }
         setLoading(false);
-      });
+      }
+    };
+
+    fetchReports();
   }, []);
 
   const getStatusCount = (status: string) => reports.filter(r => r.status === status).length;
@@ -141,12 +155,15 @@ export default function KanbanBoard() {
   );
 
   if (loading) return <div className="p-8">Cargando tablero...</div>;
-  if (error) return <div className="p-8 text-red-500">{error} (Asegúrate de haber iniciado sesión en localhost:8001)</div>;
+  if (error && reports.length === 0) return <div className="p-8 text-red-500">{error}</div>;
 
   return (
     <div className="h-full flex flex-col">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Operaciones en Curso</h2>
+        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          Operaciones en Curso
+          {error && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-normal">Offline</span>}
+        </h2>
         <p className="text-gray-500 mt-1">Gestión centralizada de entregables (Datos Reales)</p>
       </div>
       
