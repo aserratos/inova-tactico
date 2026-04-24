@@ -19,6 +19,19 @@ class User(UserMixin, db.Model):
     telefono = db.Column(db.String(20), nullable=True) # Para envío de WhatsApp
     invite_token = db.Column(db.String(100), unique=True, nullable=True) # Enlace temporal
     invite_token_expiry = db.Column(db.DateTime, nullable=True) # Caducidad del enlace
+    
+    # WebAuthn
+    webauthn_id = db.Column(db.String(100), unique=True, nullable=True)
+
+class WebAuthnCredential(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    credential_id = db.Column(db.String(300), unique=True, nullable=False)
+    public_key = db.Column(db.Text, nullable=False)
+    sign_count = db.Column(db.Integer, default=0)
+    transports = db.Column(db.String(100), nullable=True)
+    
+    user = db.relationship('User', backref=db.backref('webauthn_credentials', lazy='dynamic'))
 
 class Template(db.Model):
     id = db.Column(db.Integer, primary_key=True)

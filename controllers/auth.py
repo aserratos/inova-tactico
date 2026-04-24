@@ -114,11 +114,13 @@ def api_mfa():
     if not current_user.mfa_secret:
         # Si no tiene MFA configurado, lo dejamos pasar por ahora (o forzar configuración, pero PWA asume login simple)
         session['mfa_verified'] = True
+        session.permanent = True
         return {"status": "success"}
         
     totp = pyotp.TOTP(current_user.mfa_secret)
     if totp.verify(token):
         session['mfa_verified'] = True
+        session.permanent = True
         log_activity('LOGIN_MFA_API', 'Superó verificación MFA 2FA (PWA)')
         return {"status": "success", "user": {"email": current_user.email, "nombre": current_user.nombre_completo}}
     else:

@@ -7,6 +7,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminTemplates from './pages/AdminTemplates';
 import AdminLogs from './pages/AdminLogs';
 import Login from './pages/Login';
+import SecuritySettings from './pages/SecuritySettings';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/" element={<KanbanBoard />} />
           <Route path="/capture" element={<TemplateSelector />} />
           <Route path="/capture/:id" element={<ReportCapture />} />
+          <Route path="/settings" element={<SecuritySettings />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/templates" element={<AdminTemplates />} />
           <Route path="/admin/logs" element={<AdminLogs />} />

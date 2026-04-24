@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { startAuthentication } from '@simplewebauthn/browser';
 
 export default function Login() {
   const [step, setStep] = useState<'password' | 'mfa'>('password');
@@ -61,6 +62,47 @@ export default function Login() {
     }
   };
 
+  const handleWebAuthnLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      // 1. Get options from server
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/webauthn/login/generate-options`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(email ? { email } : {}), // Opcional enviar email
+        credentials: 'include'
+      });
+      const options = await res.json();
+      
+      if (!res.ok) throw new Error(options.error || 'Error al generar opciones biométricas');
+
+      // 2. Pass options to authenticator
+      const asseResp = await startAuthentication(options);
+
+      // 3. Send response back to server to verify
+      const verificationRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/webauthn/login/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(asseResp),
+        credentials: 'include'
+      });
+      
+      const verification = await verificationRes.json();
+      
+      if (verificationRes.ok && verification.status === 'ok') {
+        window.location.href = '/';
+      } else {
+        throw new Error(verification.error || 'Fallo de autenticación biométrica');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('La autenticación biométrica falló o fue cancelada.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-corporate-light flex flex-col justify-center items-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -110,11 +152,27 @@ export default function Login() {
                 />
               </div>
               <button
+                type="button"
+                onClick={handleWebAuthnLogin}
+                disabled={loading}
+                className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center space-x-2 mb-4"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 0 0-6.88 2.77"></path><path d="M12 22a10 10 0 0 1-6.88-2.77"></path><path d="M3 12a10 10 0 0 0 1.25 4.88"></path><path d="M3 12a10 10 0 0 1 1.25-4.88"></path><path d="M21 12a10 10 0 0 1-1.25 4.88"></path><path d="M21 12a10 10 0 0 0-1.25-4.88"></path><path d="M16.5 7a6.5 6.5 0 0 1 0 10"></path><path d="M7.5 7a6.5 6.5 0 0 0 0 10"></path><path d="M12 6a6 6 0 0 1 0 12"></path></svg>
+                <span>Entrar con FaceID / Huella</span>
+              </button>
+              
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">O entra con contraseña</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+              </div>
+
+              <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-corporate-blue hover:bg-blue-700 text-white font-medium py-3 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                className="w-full bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-medium py-3 rounded-lg transition-all disabled:opacity-50"
               >
-                {loading ? 'Verificando...' : 'Acceder al Sistema'}
+                {loading ? 'Verificando...' : 'Iniciar Sesión'}
               </button>
             </form>
           ) : (

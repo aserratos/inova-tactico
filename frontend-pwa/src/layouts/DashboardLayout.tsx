@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Camera, LogOut, Users, FileText, Activity } from 'lucide-react';
+import { LayoutDashboard, Camera, LogOut, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { SyncEngine } from '../components/SyncEngine';
 
@@ -66,6 +66,13 @@ export default function DashboardLayout() {
             <Camera size={20} />
             <span className="font-medium">Nueva Captura</span>
           </Link>
+          <Link 
+            to="/settings" 
+            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/settings' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <ShieldCheck size={20} />
+            <span className="font-medium">Ajustes</span>
+          </Link>
           
           {isAdmin && (
             <>
@@ -122,6 +129,10 @@ export default function DashboardLayout() {
           <Link to="/capture" className={`flex flex-col items-center p-2 ${location.pathname === '/capture' ? 'text-corporate-blue' : 'text-gray-500'}`}>
             <Camera size={24} />
             <span className="text-xs mt-1 font-medium">Captura</span>
+          </Link>
+          <Link to="/settings" className={`flex flex-col items-center p-2 ${location.pathname === '/settings' ? 'text-corporate-blue' : 'text-gray-500'}`}>
+            <ShieldCheck size={24} />
+            <span className="text-xs mt-1 font-medium">Ajustes</span>
           </Link>
           {isAdmin && (
             <Link to="/admin/logs" className={`flex flex-col items-center p-2 ${location.pathname.startsWith('/admin') ? 'text-purple-600' : 'text-gray-500'}`}>

@@ -1,11 +1,12 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Flask, redirect, url_for, send_from_directory
 from models import db, User
 from flask_login import LoginManager
 from flask_cors import CORS
+from controllers.webauthn_api import webauthn_bp
 
 def datetime_format(value):
     if isinstance(value, datetime):
@@ -23,6 +24,7 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'inova_dev_secret_key_12345')
     app.config['SESSION_COOKIE_SAMESITE'] = 'None'
     app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365) # Sesiones persistentes (1 año)
     
     # Habilitar CORS para que la PWA (React) pueda comunicarse con la API
     CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
@@ -70,6 +72,7 @@ def create_app():
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(templates_bp)
+    app.register_blueprint(webauthn_bp)
 
     
     @app.route('/')

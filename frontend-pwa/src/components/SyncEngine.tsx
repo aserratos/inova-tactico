@@ -42,10 +42,11 @@ export function SyncEngine() {
             let headers: Record<string, string> = {};
 
             if (task.isFormData) {
-              bodyData = new FormData();
+              const fd = new FormData();
               Object.keys(task.payload).forEach(key => {
-                bodyData.append(key, task.payload[key]);
+                fd.append(key, task.payload[key]);
               });
+              bodyData = fd;
               // No set Content-Type header so browser sets multipart/form-data with boundary
             } else {
               bodyData = JSON.stringify(task.payload);
