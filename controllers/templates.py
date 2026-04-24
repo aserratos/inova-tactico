@@ -73,6 +73,11 @@ def get_reports_api():
         
     reports_data = []
     for r in draft_reports:
+        template = r.template
+        variables_list = json.loads(template.variables_json or '[]') if template else []
+        text_vars = [v for v in variables_list if not SmartDocxTemplate.is_image_var(v)]
+        image_vars = [v for v in variables_list if SmartDocxTemplate.is_image_var(v)]
+        
         reports_data.append({
             'id': r.id,
             'nombre': r.nombre,
@@ -81,7 +86,11 @@ def get_reports_api():
             'fecha_actualizacion': r.fecha_actualizacion.strftime('%d %b'),
             'asignado': r.assigned_to.nombre_completo if r.assigned_to and r.assigned_to.nombre_completo else 'Sin Asignar',
             'asignado_iniciales': ''.join([n[0] for n in (r.assigned_to.nombre_completo or '').split()[:2]]) if r.assigned_to and r.assigned_to.nombre_completo else '??',
-            'has_compiled_file': bool(r.archivo_compilado_path and (os.path.exists(r.archivo_compilado_path) or 'templates/' in r.archivo_compilado_path))
+            'has_compiled_file': bool(r.archivo_compilado_path and (os.path.exists(r.archivo_compilado_path) or 'templates/' in r.archivo_compilado_path)),
+            'template_name': template.nombre if template else '',
+            'text_vars': text_vars,
+            'image_vars': image_vars,
+            'data_json': r.data_json or '{}'
         })
         
     return {"reports": reports_data}

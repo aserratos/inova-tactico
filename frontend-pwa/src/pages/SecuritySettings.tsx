@@ -41,7 +41,7 @@ export default function SecuritySettings() {
 
     } catch (err: any) {
       console.error(err);
-      setMessage({ text: 'No se pudo registrar el dispositivo. Asegúrate de tener configurado un PIN, Huella o FaceID en tu equipo.', type: 'error' });
+      setMessage({ text: `Error: ${err.message}`, type: 'error' });
     } finally {
       setLoading(false);
     }

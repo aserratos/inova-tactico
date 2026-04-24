@@ -7,6 +7,7 @@ from webauthn import (
     verify_registration_response,
     generate_authentication_options,
     verify_authentication_response,
+    options_to_json
 )
 from webauthn.helpers.structs import (
     RegistrationCredential,
@@ -54,7 +55,8 @@ def generate_registration():
     )
 
     # Convert to dict and store challenge in session
-    options_dict = json.loads(options.json())
+    options_json_str = options_to_json(options)
+    options_dict = json.loads(options_json_str)
     session['registration_challenge'] = options_dict['challenge']
 
     return jsonify(options_dict)
@@ -118,7 +120,8 @@ def generate_auth():
         user_verification=UserVerificationRequirement.PREFERRED,
     )
 
-    options_dict = json.loads(options.json())
+    options_json_str = options_to_json(options)
+    options_dict = json.loads(options_json_str)
     session['authentication_challenge'] = options_dict['challenge']
 
     return jsonify(options_dict)
