@@ -103,7 +103,14 @@ def api_login():
     session['mfa_verified'] = False
     log_activity('LOGIN_API', 'Inicio de sesión temporal previo a MFA (PWA)')
     
-    return {"status": "success", "requires_mfa": True}
+    # Generar URI para el QR (útil si es el primer inicio de sesión)
+    qr_uri = ""
+    if user.mfa_secret:
+        import pyotp
+        totp = pyotp.TOTP(user.mfa_secret)
+        qr_uri = totp.provisioning_uri(name=user.email, issuer_name="Inova Securite")
+    
+    return {"status": "success", "requires_mfa": True, "qr_uri": qr_uri}
 
 @auth_bp.route('/api/mfa', methods=['POST'])
 @login_required

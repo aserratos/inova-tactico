@@ -6,6 +6,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [qrUri, setQrUri] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +27,7 @@ export default function Login() {
       if (!res.ok) throw new Error(data.message || 'Error al iniciar sesión');
       
       if (data.requires_mfa) {
+        if (data.qr_uri) setQrUri(data.qr_uri);
         setStep('mfa');
       } else {
         window.location.href = '/';
@@ -177,6 +179,12 @@ export default function Login() {
             </form>
           ) : (
             <form onSubmit={handleMfaSubmit} className="space-y-5">
+              {qrUri && (
+                <div className="flex flex-col items-center bg-white p-4 rounded-xl border border-gray-100 mb-4 shadow-sm">
+                  <p className="text-xs text-gray-500 mb-3 text-center">Si es tu primer inicio de sesión, escanea este código con tu app de Autenticador (Google Authenticator, Microsoft, Authy):</p>
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrUri)}`} alt="MFA QR Code" className="w-40 h-40 border border-gray-200 rounded-lg p-2" />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-center">Código de Autenticador (MFA)</label>
                 <input
