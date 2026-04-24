@@ -38,7 +38,7 @@ export default function KanbanBoard() {
         console.warn("No se pudo conectar al servidor. Cargando caché offline...");
         const cached = await db.cachedReports.toArray();
         if (cached && cached.length > 0) {
-          setReports(cached);
+          setReports(cached as any as Report[]);
           setError("Modo Sin Conexión - Mostrando datos guardados localmente");
         } else {
           setError(err.message || "Error de conexión");

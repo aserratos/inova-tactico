@@ -20,6 +20,10 @@ export interface CachedReport {
   comentarios: string;
   data_json: string;
   updated_at: string;
+  fecha_actualizacion?: string;
+  asignado?: string;
+  asignado_iniciales?: string;
+  has_compiled_file?: boolean;
 }
 
 export interface CachedTemplate {

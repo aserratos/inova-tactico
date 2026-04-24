@@ -38,7 +38,7 @@ export function SyncEngine() {
         
         for (const task of pendingTasks) {
           try {
-            let bodyData;
+            let bodyData: BodyInit | null = null;
             let headers: Record<string, string> = {};
 
             if (task.isFormData) {
