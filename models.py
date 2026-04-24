@@ -1,10 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
 from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     # Clerk identifier (opcional, pero útil si Clerk usa su propio ID)
@@ -75,8 +74,8 @@ class Notification(db.Model):
     user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
 
 def log_activity(action, details=None, user_id=None):
-    from flask_login import current_user
-    uid = user_id if user_id else (current_user.id if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated else None)
+    from flask import g
+    uid = user_id if user_id else (g.current_user.id if hasattr(g, 'current_user') and g.current_user else None)
     if uid:
         log = ActivityLog(user_id=uid, action=action, details=details)
         db.session.add(log)
