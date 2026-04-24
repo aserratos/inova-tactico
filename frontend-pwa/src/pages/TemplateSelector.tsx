@@ -20,6 +20,12 @@ export default function TemplateSelector() {
       .then(data => {
         setTemplates(data.templates || []);
         setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+        if (!navigator.onLine) {
+          alert('Estás en modo Offline. No puedes iniciar reportes nuevos, pero puedes continuar los existentes en el tablero.');
+        }
       });
   }, []);
 
@@ -34,7 +40,7 @@ export default function TemplateSelector() {
       if (res.ok && data.id) {
         navigate(`/capture/${data.id}`);
       } else {
-        alert("Error al iniciar reporte");
+        alert("Error al iniciar reporte. Revisa tu conexión a internet.");
       }
     } catch (e) {
       alert("Error de red");

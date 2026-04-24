@@ -24,6 +24,9 @@ export interface CachedReport {
   asignado?: string;
   asignado_iniciales?: string;
   has_compiled_file?: boolean;
+  template_name?: string;
+  text_vars?: string[];
+  image_vars?: string[];
 }
 
 export interface CachedTemplate {

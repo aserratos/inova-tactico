@@ -32,10 +32,16 @@ export default function ReportCapture() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    if (!id) return;
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
+    const loadReport = async () => {
+      if (!id) return;
+      
+      try {
+        if (!navigator.onLine) throw new Error('Offline');
+        
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Fetch failed');
+        const data = await res.json();
+        
         setReport(data);
         setFormData(data.saved_data || {});
         
@@ -48,7 +54,34 @@ export default function ReportCapture() {
         });
         setImagePreviews(previews);
         setLoading(false);
-      });
+      } catch (err) {
+        // Fallback a IndexedDB (Offline Mode)
+        console.log('Cargando reporte desde IndexedDB (Offline)...');
+        import('../lib/db').then(({ db }) => {
+          db.cachedReports.get(Number(id)).then(cached => {
+            if (cached) {
+              const savedData = JSON.parse(cached.data_json || '{}');
+              setReport({
+                id: cached.id,
+                nombre: cached.nombre,
+                status: cached.status,
+                template_name: cached.template_name || 'Plantilla Offline',
+                text_vars: cached.text_vars || [],
+                image_vars: cached.image_vars || [],
+                saved_data: savedData
+              });
+              setFormData(savedData);
+              setImagePreviews({}); // Imágenes no están cacheadas por ahora (requeriría blob url)
+              setLoading(false);
+            } else {
+              console.error('Reporte no encontrado en caché local');
+            }
+          });
+        });
+      }
+    };
+    
+    loadReport();
 
     // Configurar Speech Recognition
     if ('webkitSpeechRecognition' in window) {
