@@ -53,12 +53,15 @@ export default function Login() {
       });
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data.message || 'Código inválido');
+      if (!res.ok) {
+        throw new Error(`Servidor: ${data.message || res.statusText || 'Código inválido'}`);
+      }
       
       // Auth success, redirect to dashboard
       window.location.href = '/';
     } catch (err: any) {
-      setError(err.message);
+      console.error("MFA Error:", err);
+      setError(`Falla: ${err.message}`);
     } finally {
       setLoading(false);
     }
