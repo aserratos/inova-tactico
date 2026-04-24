@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { Activity, ShieldAlert, MonitorSmartphone, ArrowRight } from 'lucide-react';
 
@@ -15,7 +16,7 @@ export default function AdminLogs() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/logs`, { credentials: 'include' })
+    apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/admin/logs`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.logs) setLogs(data.logs);

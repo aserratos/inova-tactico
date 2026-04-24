@@ -4,9 +4,8 @@ load_dotenv()
 from datetime import datetime, timezone, timedelta
 from flask import Flask, redirect, url_for, send_from_directory
 from models import db, User
-from flask_login import LoginManager
 from flask_cors import CORS
-from controllers.webauthn_api import webauthn_bp
+from flask_cors import CORS
 
 def datetime_format(value):
     if isinstance(value, datetime):
@@ -14,9 +13,7 @@ def datetime_format(value):
     return value
 
 import secrets
-from flask_executor import Executor
-
-executor = Executor()
+from extensions import executor
 
 def create_app():
     app = Flask(__name__)
@@ -57,22 +54,12 @@ def create_app():
     db.init_app(app)
     executor.init_app(app)
     
-    login_manager = LoginManager()
-    login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Por favor inicie sesión para acceder a esta página.'
-    login_manager.login_message_category = 'warning'
-    login_manager.init_app(app)
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return db.session.get(User, int(user_id))
+    # Flask-Login ha sido reemplazado por autenticación JWT con Clerk
+    # Se usa @require_auth de auth_middleware en las rutas
         
-    from controllers.auth import auth_bp
     from controllers.templates import templates_bp
     
-    app.register_blueprint(auth_bp)
     app.register_blueprint(templates_bp)
-    app.register_blueprint(webauthn_bp)
 
     
     @app.route('/')

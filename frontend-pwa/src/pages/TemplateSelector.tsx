@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Search, PlusCircle } from 'lucide-react';
@@ -15,7 +16,7 @@ export default function TemplateSelector() {
   const [startingId, setStartingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/templates`, { credentials: 'include' })
+    apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/templates`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setTemplates(data.templates || []);
@@ -32,7 +33,7 @@ export default function TemplateSelector() {
   const handleStartReport = async (templateId: number) => {
     setStartingId(templateId);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/start/${templateId}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/start/${templateId}`, {
         method: 'POST',
         credentials: 'include'
       });

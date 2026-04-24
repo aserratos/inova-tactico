@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Mic, MicOff, Save, ChevronLeft } from 'lucide-react';
@@ -38,7 +39,7 @@ export default function ReportCapture() {
       try {
         if (!navigator.onLine) throw new Error('Offline');
         
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' });
+        const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
         
@@ -198,7 +199,7 @@ export default function ReportCapture() {
         return;
       }
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`, {
         method: 'POST',
         body: formDataPayload,
         credentials: 'include'

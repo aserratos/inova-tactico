@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import DashboardLayout from './layouts/DashboardLayout';
 import KanbanBoard from './pages/KanbanBoard';
 import ReportCapture from './pages/ReportCapture';
@@ -13,8 +14,34 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<DashboardLayout />}>
+        {/* Ruta de Login (solo si estás deslogueado) */}
+        <Route 
+          path="/login" 
+          element={
+            <>
+              <SignedIn>
+                <Navigate to="/" replace />
+              </SignedIn>
+              <SignedOut>
+                <Login />
+              </SignedOut>
+            </>
+          } 
+        />
+
+        {/* Rutas Protegidas (Requieren estar logueado, sino te manda al login) */}
+        <Route 
+          element={
+            <>
+              <SignedIn>
+                <DashboardLayout />
+              </SignedIn>
+              <SignedOut>
+                <RedirectToSignIn />
+              </SignedOut>
+            </>
+          }
+        >
           <Route path="/" element={<KanbanBoard />} />
           <Route path="/capture" element={<TemplateSelector />} />
           <Route path="/capture/:id" element={<ReportCapture />} />
@@ -23,6 +50,8 @@ function App() {
           <Route path="/admin/templates" element={<AdminTemplates />} />
           <Route path="/admin/logs" element={<AdminLogs />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

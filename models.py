@@ -7,8 +7,9 @@ db = SQLAlchemy()
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    mfa_secret = db.Column(db.String(32), nullable=True)
+    # Clerk identifier (opcional, pero útil si Clerk usa su propio ID)
+    clerk_id = db.Column(db.String(100), unique=True, nullable=True) 
+    
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     role = db.Column(db.String(50), default='tecnico') # tecnico, supervisor, admin
@@ -17,21 +18,6 @@ class User(UserMixin, db.Model):
     nombre_completo = db.Column(db.String(200), nullable=True) # Nombre real
     puesto = db.Column(db.String(100), nullable=True) # Cargo o Posición
     telefono = db.Column(db.String(20), nullable=True) # Para envío de WhatsApp
-    invite_token = db.Column(db.String(100), unique=True, nullable=True) # Enlace temporal
-    invite_token_expiry = db.Column(db.DateTime, nullable=True) # Caducidad del enlace
-    
-    # WebAuthn
-    webauthn_id = db.Column(db.String(100), unique=True, nullable=True)
-
-class WebAuthnCredential(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    credential_id = db.Column(db.String(300), unique=True, nullable=False)
-    public_key = db.Column(db.Text, nullable=False)
-    sign_count = db.Column(db.Integer, default=0)
-    transports = db.Column(db.String(100), nullable=True)
-    
-    user = db.relationship('User', backref=db.backref('webauthn_credentials', lazy='dynamic'))
 
 class Template(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useEffect, useState } from 'react';
 import { db } from '../lib/db';
 
@@ -53,7 +54,7 @@ export function SyncEngine() {
               headers['Content-Type'] = 'application/json';
             }
 
-            const response = await fetch(task.url, {
+            const response = await apiFetch(task.url, {
               method: task.method,
               headers: headers,
               body: bodyData,

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileDown, FileCog } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function KanbanBoard() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' });
+        const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' });
         if (!res.ok) throw new Error('Error de servidor o sesión expirada');
         
         const data = await res.json();
@@ -58,7 +59,7 @@ export default function KanbanBoard() {
     if (!confirm('¿Deseas enviar a generar el reporte final en Word?')) return;
     
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/compile/${id}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/compile/${id}`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -76,7 +77,7 @@ export default function KanbanBoard() {
   const handleDownload = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/download/${id}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/download/${id}`, {
         credentials: 'include'
       });
       

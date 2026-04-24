@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, UploadCloud, Trash2, Globe, Lock } from 'lucide-react';
 
@@ -16,7 +17,7 @@ export default function AdminTemplates() {
 
   const fetchTemplates = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/templates`, { credentials: 'include' });
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/templates`, { credentials: 'include' });
       const data = await res.json();
       if (res.ok) setTemplates(data.templates || []);
     } catch (e) {
@@ -41,7 +42,7 @@ export default function AdminTemplates() {
 
     setUploading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/templates/upload`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/templates/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -64,7 +65,7 @@ export default function AdminTemplates() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar esta plantilla base?')) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/templates/delete/${id}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/templates/delete/${id}`, {
         method: 'POST',
         credentials: 'include'
       });

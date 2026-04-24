@@ -1,47 +1,21 @@
-import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Camera, LogOut, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
+import { UserButton, useUser } from '@clerk/clerk-react';
 import { useState, useEffect } from 'react';
 import { SyncEngine } from '../components/SyncEngine';
 
 export default function DashboardLayout() {
   const location = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { user } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Todo: En el futuro podemos leer el rol desde la base de datos o desde Clerk Metadata.
+  // Por ahora lo simulamos basado en el correo o puedes habilitarlo por defecto.
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/session`, { credentials: 'include' })
-      .then(res => {
-        if (res.ok) {
-          setIsAuthenticated(true);
-          return res.json();
-        } else {
-          setIsAuthenticated(false);
-          return null;
-        }
-      })
-      .then(data => {
-        if (data && data.user && data.user.is_admin) setIsAdmin(true);
-      })
-      .catch(() => setIsAuthenticated(false));
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/auth/api/logout`, { method: 'POST', credentials: 'include' });
-      window.location.href = '/login';
-    } catch (e) {
-      window.location.href = '/login';
+    if (user?.primaryEmailAddress?.emailAddress?.includes('admin')) {
+      setIsAdmin(true);
     }
-  };
-
-  if (isAuthenticated === null) {
-    return <div className="min-h-screen bg-corporate-light flex items-center justify-center">Verificando seguridad...</div>;
-  }
-
-  if (isAuthenticated === false) {
-    return <Navigate to="/login" replace />;
-  }
-
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-corporate-light flex flex-col md:flex-row">
@@ -74,6 +48,7 @@ export default function DashboardLayout() {
             <span className="font-medium">Ajustes</span>
           </Link>
           
+          {/* Admin routes hidden for now unless isAdmin */}
           {isAdmin && (
             <>
               <div className="pt-4 pb-1">
@@ -103,25 +78,27 @@ export default function DashboardLayout() {
             </>
           )}
         </nav>
-        <div className="p-4 border-t border-gray-200">
-          <button onClick={handleLogout} className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg transition-colors text-red-600 hover:bg-red-50">
-            <LogOut size={20} />
-            <span className="font-medium">Cerrar Sesión</span>
-          </button>
+        <div className="p-4 border-t border-gray-200 flex items-center space-x-3">
+          <UserButton afterSignOutUrl="/login" />
+          <div className="flex flex-col text-sm">
+            <span className="font-medium text-gray-900">{user?.fullName || 'Usuario'}</span>
+            <span className="text-gray-500 text-xs truncate max-w-[150px]">{user?.primaryEmailAddress?.emailAddress}</span>
+          </div>
         </div>
       </aside>
 
       {/* Contenido Principal */}
-      <main className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         <header className="md:hidden bg-white shadow-sm px-4 py-4 sticky top-0 z-10 flex items-center justify-between">
           <h1 className="text-lg font-bold text-corporate-dark">Inova Admin</h1>
+          <UserButton afterSignOutUrl="/login" />
         </header>
         <div className="flex-1 p-4 md:p-8">
           <Outlet />
         </div>
         
         {/* Navegación Inferior para Móvil */}
-        <nav className="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 pb-safe z-10">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 pb-safe z-10">
           <Link to="/" className={`flex flex-col items-center p-2 ${location.pathname === '/' ? 'text-corporate-blue' : 'text-gray-500'}`}>
             <LayoutDashboard size={24} />
             <span className="text-xs mt-1 font-medium">Tablero</span>

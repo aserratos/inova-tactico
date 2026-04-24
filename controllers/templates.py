@@ -4,13 +4,14 @@ import re
 import json
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_file
-from flask_login import login_required, current_user
+from controllers.auth_middleware import require_auth as login_required
+from flask import g
 from werkzeug.utils import secure_filename
 import psutil
 import platform
 from models import db, Template, User, ReportInstance, ActivityLog, log_activity, Notification
 from functools import wraps
-from app import executor
+from extensions import executor
 from services.document_service import SmartDocxTemplate, background_compile_task
 from services.report_service import save_report_logic
 
@@ -30,26 +31,26 @@ def mfa_required(f):
 def dashboard():
     # 1. Show my templates AND public templates
     templates = Template.query.filter(
-        (Template.uploader_id == current_user.id) | (Template.is_public == True)
+        (Template.uploader_id == g.current_user.id) | (Template.is_public == True)
     ).order_by(Template.is_favorite.desc(), Template.fecha_subida.desc()).all()
     
     # 2. Get Users if Admin
     users = []
-    if current_user.is_admin:
+    if g.current_user.is_admin:
         users = User.query.all()
         
     # 3. Get Collaborative Reports (Drafts)
     # If admin/supervisor: see all. If user: see assigned or created.
-    if current_user.is_admin or current_user.role == 'supervisor':
+    if g.current_user.is_admin or g.current_user.role == 'supervisor':
         draft_reports = ReportInstance.query.order_by(ReportInstance.fecha_actualizacion.desc()).all()
     else:
         draft_reports = ReportInstance.query.filter(
-            (ReportInstance.assigned_to_id == current_user.id) | (ReportInstance.created_by_id == current_user.id)
+            (ReportInstance.assigned_to_id == g.current_user.id) | (ReportInstance.created_by_id == g.current_user.id)
         ).order_by(ReportInstance.fecha_actualizacion.desc()).all()
         
     # 4. Get Activity Logs for Bitacora
     logs = []
-    if current_user.is_admin:
+    if g.current_user.is_admin:
         logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(150).all()
         
     return render_template('dashboard/index.html', 
@@ -64,11 +65,11 @@ def dashboard():
 @login_required
 @mfa_required
 def get_reports_api():
-    if current_user.is_admin or current_user.role == 'supervisor':
+    if g.current_user.is_admin or g.current_user.role == 'supervisor':
         draft_reports = ReportInstance.query.order_by(ReportInstance.fecha_actualizacion.desc()).all()
     else:
         draft_reports = ReportInstance.query.filter(
-            (ReportInstance.assigned_to_id == current_user.id) | (ReportInstance.created_by_id == current_user.id)
+            (ReportInstance.assigned_to_id == g.current_user.id) | (ReportInstance.created_by_id == g.current_user.id)
         ).order_by(ReportInstance.fecha_actualizacion.desc()).all()
         
     reports_data = []
@@ -99,7 +100,7 @@ def get_reports_api():
 @login_required
 def api_get_templates():
     templates = Template.query.filter(
-        (Template.uploader_id == current_user.id) | (Template.is_public == True)
+        (Template.uploader_id == g.current_user.id) | (Template.is_public == True)
     ).order_by(Template.is_favorite.desc(), Template.fecha_subida.desc()).all()
     return {"templates": [{"id": t.id, "nombre": t.nombre} for t in templates]}
 
@@ -136,7 +137,7 @@ def api_save_report(instance_id):
         return {"error": "No encontrado"}, 404
     
     # Use centralized logic (it reads request.form and request.files)
-    save_report_logic(report, request, current_user)
+    save_report_logic(report, request, g.current_user)
     
     db.session.commit()
     return {"status": "success"}
@@ -164,8 +165,8 @@ def api_start_report(template_id):
     new_report = ReportInstance(
         template_id=template.id,
         nombre=f"{template.nombre} - {datetime.now().strftime('%d/%m %H:%M')}",
-        created_by_id=current_user.id,
-        assigned_to_id=current_user.id,
+        created_by_id=g.current_user.id,
+        assigned_to_id=g.current_user.id,
         total_campos=total,
         porcentaje_avance=0
     )
@@ -185,7 +186,7 @@ def api_compile_report(instance_id):
         return {"error": f"Incompleto (Avance: {report.porcentaje_avance}%)"}, 400
     
     app = current_app._get_current_object()
-    executor.submit(background_compile_task, app, report.id, current_user.id)
+    executor.submit(background_compile_task, app, report.id, g.current_user.id)
     
     return {"status": "success"}
 
@@ -214,13 +215,14 @@ def api_download_report(instance_id):
 # --- 🔔 API DE NOTIFICACIONES (Relocalizado) ---
 
 @templates_bp.route('/api/notifications/unread')
+@login_required
 def get_unread_notifications():
-    if not current_user.is_authenticated:
+    if not g.current_user.is_authenticated:
         return {"notifications": [], "count": 0}, 401
         
-    notifs = Notification.query.filter_by(user_id=current_user.id, is_read=False).order_by(Notification.timestamp.desc()).limit(10).all()
+    notifs = Notification.query.filter_by(user_id=g.current_user.id, is_read=False).order_by(Notification.timestamp.desc()).limit(10).all()
     return {
-        "count": Notification.query.filter_by(user_id=current_user.id, is_read=False).count(),
+        "count": Notification.query.filter_by(user_id=g.current_user.id, is_read=False).count(),
         "notifications": [{
             "id": n.id,
             "title": n.title,
@@ -232,12 +234,13 @@ def get_unread_notifications():
     }
 
 @templates_bp.route('/api/notifications/read/<int:notif_id>', methods=['POST'])
+@login_required
 def mark_notification_read(notif_id):
-    if not current_user.is_authenticated:
+    if not g.current_user.is_authenticated:
         return {"status": "error"}, 401
         
     n = db.session.get(Notification, notif_id)
-    if n and n.user_id == current_user.id:
+    if n and n.user_id == g.current_user.id:
         n.is_read = True
         db.session.commit()
         return {"status": "success"}
@@ -252,7 +255,7 @@ def update_report_status(instance_id):
     if not report:
         return {"status": "error", "message": "Reporte no encontrado"}, 404
         
-    if report.assigned_to_id != current_user.id and not current_user.is_admin:
+    if report.assigned_to_id != g.current_user.id and not g.current_user.is_admin:
         return {"status": "error", "message": "No tienes permiso para mover este reporte."}, 403
         
     new_status = request.json.get('status')
@@ -275,11 +278,11 @@ def update_report_status(instance_id):
     log_activity('OPERACION_ACTUALIZADA', f'Movió ID-{report.id} a la columna "{new_status}" vía Kanban.')
     
     # Enviar Notificación In-App si el usuario que movió NO es el creador original
-    if new_status == 'terminado' and report.created_by_id != current_user.id:
+    if new_status == 'terminado' and report.created_by_id != g.current_user.id:
         notif = Notification(
             user_id=report.created_by_id,
             title='Reporte Concluido en Sitio',
-            message=f"{current_user.nombre_completo or current_user.email} completó el levantamiento {report.nombre}.",
+            message=f"{g.current_user.nombre_completo or g.current_user.email} completó el levantamiento {report.nombre}.",
             type='success',
             link=url_for('templates.edit_report', instance_id=report.id)
         )
@@ -316,8 +319,8 @@ def start_report(template_id):
     new_report = ReportInstance(
         template_id=template.id,
         nombre=f"{template.nombre} - {datetime.now().strftime('%d/%m %H:%M')}",
-        created_by_id=current_user.id,
-        assigned_to_id=current_user.id,
+        created_by_id=g.current_user.id,
+        assigned_to_id=g.current_user.id,
         total_campos=total,
         porcentaje_avance=0
     )
@@ -337,7 +340,7 @@ def edit_report(instance_id):
         return redirect(url_for('templates.dashboard'))
         
     # Check access
-    if not current_user.is_admin and report.created_by_id != current_user.id and report.assigned_to_id != current_user.id:
+    if not g.current_user.is_admin and report.created_by_id != g.current_user.id and report.assigned_to_id != g.current_user.id:
         flash('No tienes permiso para ver este reporte.', 'error')
         return redirect(url_for('templates.dashboard'))
         
@@ -381,7 +384,7 @@ def save_report(instance_id):
         return redirect(url_for('templates.dashboard'))
     
     # Use centralized logic
-    save_report_logic(report, request, current_user)
+    save_report_logic(report, request, g.current_user)
     
     db.session.commit()
     flash('Progreso guardado exitosamente.', 'success')
@@ -395,7 +398,7 @@ def compile_report(instance_id):
     if not report: return redirect(url_for('templates.dashboard'))
     
     # First, save current state
-    save_report_logic(report, request, current_user)
+    save_report_logic(report, request, g.current_user)
     
     # Gatekeeper Security: Only compile if 100%
     if report.porcentaje_avance < 100:
@@ -409,7 +412,7 @@ def compile_report(instance_id):
     
     db.session.commit()
     app = current_app._get_current_object()
-    executor.submit(background_compile_task, app, report.id, current_user.id)
+    executor.submit(background_compile_task, app, report.id, g.current_user.id)
     
     flash('Tu reporte se está compilando en segundo plano. Te enviaremos una notificación cuando esté listo.', 'success')
     return redirect(url_for('templates.dashboard'))
@@ -424,7 +427,7 @@ def download_compiled_report(instance_id):
         flash('Reporte no encontrado.', 'error')
         return redirect(url_for('templates.dashboard'))
         
-    if report.created_by_id != current_user.id and report.assigned_to_id != current_user.id and not current_user.is_admin:
+    if report.created_by_id != g.current_user.id and report.assigned_to_id != g.current_user.id and not g.current_user.is_admin:
         flash('No tienes permiso para descargar este reporte.', 'error')
         return redirect(url_for('templates.dashboard'))
         
@@ -452,7 +455,7 @@ def download_compiled_report(instance_id):
 @login_required
 @mfa_required
 def system_stats():
-    if not current_user.is_admin:
+    if not g.current_user.is_admin:
         return {"error": "Unauthorized"}, 403
         
     cpu = psutil.cpu_percent(interval=None)
@@ -484,7 +487,7 @@ def system_stats():
 @login_required
 @mfa_required
 def upload():
-    if not current_user.is_admin:
+    if not g.current_user.is_admin:
         flash('Solo los administradores pueden subir nuevas plantillas.', 'error')
         return redirect(url_for('templates.dashboard'))
         
@@ -522,7 +525,7 @@ def upload():
         new_template = Template(
             nombre=nombre,
             ruta_archivo_docx=object_key,
-            uploader_id=current_user.id,
+            uploader_id=g.current_user.id,
             is_public=is_public,
             variables_json=vars_json
         )
@@ -539,7 +542,7 @@ def upload():
 @templates_bp.route('/api/admin/templates/upload', methods=['POST'])
 @login_required
 def api_upload_template():
-    if not current_user.is_admin:
+    if not g.current_user.is_admin:
         return {"error": "Acceso denegado"}, 403
         
     if 'document' not in request.files:
@@ -570,7 +573,7 @@ def api_upload_template():
         new_template = Template(
             nombre=nombre,
             ruta_archivo_docx=object_key,
-            uploader_id=current_user.id,
+            uploader_id=g.current_user.id,
             is_public=True,
             variables_json=vars_json
         )
@@ -598,7 +601,7 @@ def toggle_favorite(template_id):
 def toggle_public(template_id):
     template = db.session.get(Template, template_id)
     # Only the uploader can change visibility
-    if template and template.uploader_id == current_user.id:
+    if template and template.uploader_id == g.current_user.id:
         template.is_public = not template.is_public
         db.session.commit()
         flash('Visibilidad de la plantilla actualizada.', 'success')
@@ -612,7 +615,7 @@ def delete_template(template_id):
     if not template:
         return redirect(url_for('templates.dashboard'))
         
-    if not current_user.is_admin and template.uploader_id != current_user.id:
+    if not g.current_user.is_admin and template.uploader_id != g.current_user.id:
         flash('Acceso denegado. No tienes permiso para eliminar esta plantilla.', 'error')
         return redirect(url_for('templates.dashboard'))
 
@@ -633,7 +636,7 @@ def delete_template(template_id):
 @templates_bp.route('/api/admin/templates/delete/<int:template_id>', methods=['POST'])
 @login_required
 def api_delete_template(template_id):
-    if not current_user.is_admin:
+    if not g.current_user.is_admin:
         return {"error": "Acceso denegado"}, 403
         
     template = db.session.get(Template, template_id)
@@ -654,7 +657,7 @@ def delete_report(instance_id):
         return redirect(url_for('templates.dashboard'))
         
     # Security: Only owner or admin
-    if not current_user.is_admin and report.created_by_id != current_user.id:
+    if not g.current_user.is_admin and report.created_by_id != g.current_user.id:
         flash('No tienes permiso para eliminar este reporte.', 'error')
         return redirect(url_for('templates.dashboard'))
         
