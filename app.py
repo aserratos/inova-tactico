@@ -21,9 +21,11 @@ def create_app():
     app = Flask(__name__)
     
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'inova_dev_secret_key_12345')
+    app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+    app.config['SESSION_COOKIE_SECURE'] = True
     
     # Habilitar CORS para que la PWA (React) pueda comunicarse con la API
-    CORS(app, supports_credentials=True, origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://192.168.1.72:5173", "http://192.168.1.72:5174", "*"])
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 
     @app.route('/sw.js')
     def serve_sw():
