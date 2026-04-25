@@ -54,13 +54,6 @@ export default function DashboardLayout() {
                 <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Admin</p>
               </div>
               <Link 
-                to="/admin/users" 
-                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/users') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Users size={18} />
-                <span className="font-medium text-sm">Usuarios</span>
-              </Link>
-              <Link 
                 to="/admin/templates" 
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/templates') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
               >

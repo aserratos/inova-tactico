@@ -46,7 +46,6 @@ function App() {
           <Route path="/capture" element={<TemplateSelector />} />
           <Route path="/capture/:id" element={<ReportCapture />} />
           <Route path="/settings" element={<SecuritySettings />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/templates" element={<AdminTemplates />} />
           <Route path="/admin/logs" element={<AdminLogs />} />
         </Route>
