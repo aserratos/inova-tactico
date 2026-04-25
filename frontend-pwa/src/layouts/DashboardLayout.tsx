@@ -12,9 +12,8 @@ export default function DashboardLayout() {
   // Todo: En el futuro podemos leer el rol desde la base de datos o desde Clerk Metadata.
   // Por ahora lo simulamos basado en el correo o puedes habilitarlo por defecto.
   useEffect(() => {
-    if (user?.primaryEmailAddress?.emailAddress?.includes('admin')) {
-      setIsAdmin(true);
-    }
+    // TEMPORAL: Todos son admin para efectos de la demo
+    setIsAdmin(true);
   }, [user]);
 
   return (
