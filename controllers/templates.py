@@ -90,9 +90,8 @@ def get_reports_api():
 @templates_bp.route('/api/templates')
 @login_required
 def api_get_templates():
-    templates = Template.query.filter(
-        (Template.uploader_id == g.current_user.id) | (Template.is_public == True)
-    ).order_by(Template.is_favorite.desc(), Template.fecha_subida.desc()).all()
+    # TEMPORAL: Mostrar TODAS las plantillas sin importar quién las subió o si son públicas
+    templates = Template.query.order_by(Template.fecha_subida.desc()).all()
     return {"templates": [{"id": t.id, "nombre": t.nombre} for t in templates]}
 
 @templates_bp.route('/api/report/<int:instance_id>', methods=['GET'])
