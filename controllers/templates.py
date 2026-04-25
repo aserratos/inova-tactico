@@ -17,17 +17,9 @@ from services.report_service import save_report_logic
 
 templates_bp = Blueprint('templates', __name__)
 
-def mfa_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('mfa_verified'):
-            return redirect(url_for('auth.mfa'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 @templates_bp.route('/dashboard')
 @login_required
-@mfa_required
 def dashboard():
     # 1. Show my templates AND public templates
     templates = Template.query.filter(
@@ -63,7 +55,6 @@ def dashboard():
 
 @templates_bp.route('/api/reports')
 @login_required
-@mfa_required
 def get_reports_api():
     if g.current_user.is_admin or g.current_user.role == 'supervisor':
         draft_reports = ReportInstance.query.order_by(ReportInstance.fecha_actualizacion.desc()).all()
@@ -217,7 +208,7 @@ def api_download_report(instance_id):
 @templates_bp.route('/api/notifications/unread')
 @login_required
 def get_unread_notifications():
-    if not g.current_user.is_authenticated:
+    if not g.current_user:
         return {"notifications": [], "count": 0}, 401
         
     notifs = Notification.query.filter_by(user_id=g.current_user.id, is_read=False).order_by(Notification.timestamp.desc()).limit(10).all()
@@ -236,7 +227,7 @@ def get_unread_notifications():
 @templates_bp.route('/api/notifications/read/<int:notif_id>', methods=['POST'])
 @login_required
 def mark_notification_read(notif_id):
-    if not g.current_user.is_authenticated:
+    if not g.current_user:
         return {"status": "error"}, 401
         
     n = db.session.get(Notification, notif_id)
@@ -249,7 +240,6 @@ def mark_notification_read(notif_id):
 # --- 🎯 API DE TABLERO KANBAN ---
 @templates_bp.route('/api/report/update_status/<int:instance_id>', methods=['POST'])
 @login_required
-@mfa_required
 def update_report_status(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report:
@@ -294,7 +284,6 @@ def update_report_status(instance_id):
 
 @templates_bp.route('/report/start/<int:template_id>', methods=['GET'])
 @login_required
-@mfa_required
 def start_report(template_id):
     template = db.session.get(Template, template_id)
     if not template:
@@ -332,7 +321,6 @@ def start_report(template_id):
 
 @templates_bp.route('/report/edit/<int:instance_id>', methods=['GET'])
 @login_required
-@mfa_required
 def edit_report(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report:
@@ -376,7 +364,6 @@ def edit_report(instance_id):
 
 @templates_bp.route('/report/save/<int:instance_id>', methods=['POST'])
 @login_required
-@mfa_required
 def save_report(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report: 
@@ -392,7 +379,6 @@ def save_report(instance_id):
 
 @templates_bp.route('/report/compile/<int:instance_id>', methods=['POST'])
 @login_required
-@mfa_required
 def compile_report(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report: return redirect(url_for('templates.dashboard'))
@@ -420,7 +406,6 @@ def compile_report(instance_id):
 
 @templates_bp.route('/report/download_compiled/<int:instance_id>')
 @login_required
-@mfa_required
 def download_compiled_report(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report:
@@ -453,7 +438,6 @@ def download_compiled_report(instance_id):
 
 @templates_bp.route('/api/system_stats', methods=['GET'])
 @login_required
-@mfa_required
 def system_stats():
     if not g.current_user.is_admin:
         return {"error": "Unauthorized"}, 403
@@ -485,7 +469,6 @@ def system_stats():
 
 @templates_bp.route('/upload', methods=['POST'])
 @login_required
-@mfa_required
 def upload():
     if not g.current_user.is_admin:
         flash('Solo los administradores pueden subir nuevas plantillas.', 'error')
@@ -587,7 +570,6 @@ def api_upload_template():
 
 @templates_bp.route('/favorite/<int:template_id>', methods=['POST'])
 @login_required
-@mfa_required
 def toggle_favorite(template_id):
     template = db.session.get(Template, template_id)
     if template:
@@ -597,7 +579,6 @@ def toggle_favorite(template_id):
 
 @templates_bp.route('/public/<int:template_id>', methods=['POST'])
 @login_required
-@mfa_required
 def toggle_public(template_id):
     template = db.session.get(Template, template_id)
     # Only the uploader can change visibility
@@ -609,7 +590,6 @@ def toggle_public(template_id):
 
 @templates_bp.route('/delete/<int:template_id>', methods=['POST'])
 @login_required
-@mfa_required
 def delete_template(template_id):
     template = db.session.get(Template, template_id)
     if not template:
@@ -649,7 +629,6 @@ def api_delete_template(template_id):
 
 @templates_bp.route('/report/delete/<int:instance_id>', methods=['POST'])
 @login_required
-@mfa_required
 def delete_report(instance_id):
     report = db.session.get(ReportInstance, instance_id)
     if not report:
@@ -672,7 +651,6 @@ def delete_report(instance_id):
 
 @templates_bp.route('/report/media/<int:instance_id>/<var_name>')
 @login_required
-@mfa_required
 def report_media(instance_id, var_name):
     report = db.session.get(ReportInstance, instance_id)
     if not report: return 'Not found', 404
