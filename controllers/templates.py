@@ -664,3 +664,72 @@ def report_media(instance_id, var_name):
         if url:
             return redirect(url)
         return 'Not found', 404
+
+# --- 👑 ADMIN API ENDPOINTS ---
+from models import ActivityLog
+
+@templates_bp.route('/auth/api/admin/users', methods=['GET'])
+@login_required
+def api_admin_users():
+    if not getattr(g.current_user, 'is_admin', False):
+        return {"error": "Unauthorized"}, 403
+    users = User.query.all()
+    return {"users": [{
+        "id": u.id,
+        "email": u.email,
+        "nombre_completo": getattr(u, 'nombre_completo', '') or 'Sin Nombre',
+        "puesto": getattr(u, 'puesto', '') or 'N/A',
+        "role": getattr(u, 'role', 'tecnico'),
+        "is_active": getattr(u, 'is_active', True),
+        "telefono": getattr(u, 'telefono', '') or ''
+    } for u in users]}
+
+@templates_bp.route('/auth/api/admin/users/create', methods=['POST'])
+@login_required
+def api_admin_users_create():
+    if not getattr(g.current_user, 'is_admin', False):
+        return {"error": "Unauthorized"}, 403
+    data = request.json
+    new_user = User(
+        email=data.get('email'),
+        nombre_completo=data.get('nombre_completo'),
+        puesto=data.get('puesto'),
+        telefono=data.get('telefono'),
+        role=data.get('role', 'tecnico')
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    return {"status": "success"}
+
+@templates_bp.route('/auth/api/admin/users/delete/<int:id>', methods=['POST', 'DELETE'])
+@login_required
+def api_admin_users_delete(id):
+    if not getattr(g.current_user, 'is_admin', False):
+        return {"error": "Unauthorized"}, 403
+    user = db.session.get(User, id)
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+    return {"status": "success"}
+
+@templates_bp.route('/auth/api/admin/users/reset/<int:id>', methods=['POST'])
+@login_required
+def api_admin_users_reset(id):
+    if not getattr(g.current_user, 'is_admin', False):
+        return {"error": "Unauthorized"}, 403
+    return {"status": "success"}
+
+@templates_bp.route('/auth/api/admin/logs', methods=['GET'])
+@login_required
+def api_admin_logs():
+    if not getattr(g.current_user, 'is_admin', False):
+        return {"error": "Unauthorized"}, 403
+    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(100).all()
+    return {"logs": [{
+        "id": l.id,
+        "action": l.action,
+        "details": l.details,
+        "timestamp": getattr(l, 'timestamp').strftime('%Y-%m-%d %H:%M:%S'),
+        "user": l.user.email if l.user else 'System'
+    } for l in logs]}
+
