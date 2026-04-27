@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
-import { UserButton, useUser } from '@clerk/clerk-react';
+import { UserButton, useUser, OrganizationSwitcher } from '@clerk/clerk-react';
 import { useState, useEffect } from 'react';
 import { SyncEngine } from '../components/SyncEngine';
 
@@ -61,6 +61,13 @@ export default function DashboardLayout() {
                 <span className="font-medium text-sm">Plantillas</span>
               </Link>
               <Link 
+                to="/team" 
+                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/team') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                <Users size={18} />
+                <span className="font-medium text-sm">Mi Equipo</span>
+              </Link>
+              <Link 
                 to="/admin/logs" 
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/logs') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
               >
@@ -70,11 +77,16 @@ export default function DashboardLayout() {
             </>
           )}
         </nav>
-        <div className="p-4 border-t border-gray-200 flex items-center space-x-3">
-          <UserButton afterSignOutUrl="/login" />
-          <div className="flex flex-col text-sm">
-            <span className="font-medium text-gray-900">{user?.fullName || 'Usuario'}</span>
-            <span className="text-gray-500 text-xs truncate max-w-[150px]">{user?.primaryEmailAddress?.emailAddress}</span>
+        <div className="p-4 border-t border-gray-200 flex flex-col space-y-3">
+          <div className="flex items-center space-x-2 w-full">
+            <OrganizationSwitcher hidePersonal={false} />
+          </div>
+          <div className="flex items-center space-x-3">
+            <UserButton afterSignOutUrl="/login" />
+            <div className="flex flex-col text-sm">
+              <span className="font-medium text-gray-900">{user?.fullName || 'Usuario'}</span>
+              <span className="text-gray-500 text-xs truncate max-w-[150px]">{user?.primaryEmailAddress?.emailAddress}</span>
+            </div>
           </div>
         </div>
       </aside>

@@ -4,6 +4,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import KanbanBoard from './pages/KanbanBoard';
 import ReportCapture from './pages/ReportCapture';
 import TemplateSelector from './pages/TemplateSelector';
+import TeamManagement from './pages/TeamManagement';
 import AdminUsers from './pages/AdminUsers';
 import AdminTemplates from './pages/AdminTemplates';
 import AdminLogs from './pages/AdminLogs';
@@ -46,6 +47,7 @@ function App() {
           <Route path="/capture" element={<TemplateSelector />} />
           <Route path="/capture/:id" element={<ReportCapture />} />
           <Route path="/settings" element={<SecuritySettings />} />
+          <Route path="/team" element={<TeamManagement />} />
           <Route path="/admin/templates" element={<AdminTemplates />} />
           <Route path="/admin/logs" element={<AdminLogs />} />
         </Route>
