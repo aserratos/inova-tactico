@@ -5,7 +5,6 @@ import KanbanBoard from './pages/KanbanBoard';
 import ReportCapture from './pages/ReportCapture';
 import TemplateSelector from './pages/TemplateSelector';
 import TeamManagement from './pages/TeamManagement';
-import AdminUsers from './pages/AdminUsers';
 import AdminTemplates from './pages/AdminTemplates';
 import AdminLogs from './pages/AdminLogs';
 import Login from './pages/Login';
