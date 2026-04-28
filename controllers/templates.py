@@ -49,11 +49,18 @@ def dashboard():
                           draft_reports=draft_reports,
                           logs=logs)
 
-# --- OCR: Vision IA ---
+# --- OCR: Vision IA (Extraccion + Mapeo Semantico) ---
 
 @templates_bp.route('/api/ocr/extract', methods=['POST'])
 @login_required
 def api_ocr_extract():
+    """
+    Pipeline de 2 pasos:
+    1. Gemini lee el documento y extrae TODOS los datos que encuentra (libre)
+    2. Gemini mapea semanticamente esos datos a los campos del formulario
+    Resultado: el formulario se llena aunque los nombres de campo sean distintos al documento.
+    La inspeccion humana corrige despues si es necesario.
+    """
     if 'image' not in request.files:
         return {"error": "No se recibio imagen"}, 400
 
@@ -61,7 +68,7 @@ def api_ocr_extract():
     mime_type = image_file.mimetype or 'image/jpeg'
 
     if not mime_type.startswith('image/'):
-        return {"error": "Solo se aceptan imagenes (JPG, PNG). Los PDFs no son compatibles."}, 400
+        return {"error": "Solo se aceptan imagenes JPG/PNG. Convierte el PDF a imagen primero."}, 400
 
     campos_raw = request.form.get('campos', '[]')
     try:
@@ -82,28 +89,35 @@ def api_ocr_extract():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
 
-        # Estrategia inteligente: extraer TODO el texto del documento
-        # y luego mapear al formulario con criterio semantico
-        campos_str = ', '.join(campos) if campos else 'todos los datos relevantes'
-        prompt = f"""Eres un asistente experto en documentos oficiales mexicanos.
+        campos_str = ', '.join(campos) if campos else 'nombre, rfc, domicilio, fecha, razon_social'
 
-PASO 1: Lee TODO el texto visible en la imagen.
-PASO 2: Identifica que tipo de documento es (INE, Constancia Fiscal SAT, Acta Constitutiva, Comprobante de Domicilio, etc.)
-PASO 3: Los campos del formulario son: {campos_str}
+        prompt = f"""Eres un sistema de extraccion de datos de documentos oficiales. Sigue estos 2 pasos:
 
-Para cada campo del formulario, busca el valor mas adecuado en el documento usando criterio semantico:
-- Si el campo se llama 'nombre', 'nombre_completo', 'razon_social', 'denominacion' -> busca el nombre de la persona o empresa
-- Si el campo se llama 'rfc' -> busca el RFC con homoclave
-- Si el campo se llama 'domicilio', 'direccion', 'calle', 'domicilio_fiscal' -> busca la direccion completa
-- Si el campo se llama 'curp' -> busca el CURP
-- Si el campo se llama 'fecha', 'fecha_nacimiento', 'vigencia' -> busca la fecha relevante en DD/MM/YYYY
-- Si el campo se llama 'folio', 'numero', 'id' -> busca cualquier numero de identificacion
-- Para cualquier otro campo, intenta inferir el valor mas logico del documento
+PASO 1 - EXTRAE TODO:
+Lee la imagen completa e identifica todos los datos que puedas ver: nombres, fechas, numeros, RFC, CURP, direcciones, folios, montos, cargos, firmas, sellos, cualquier texto relevante.
 
-IMPORTANTE: Responde SOLO con un JSON valido. Usa null SOLO si es absolutamente imposible inferir el valor.
-Ejemplo: {{"nombre_completo": "EMPRESA EJEMPLO SA DE CV", "rfc": "EEJ850312AB3", "domicilio": "AV REFORMA 123 COL CENTRO CDMX"}}
+PASO 2 - MAPEO SEMANTICO A CAMPOS DEL FORMULARIO:
+Los campos del formulario son: [{campos_str}]
 
-JSON:"""
+Para cada campo, asigna el valor mas logicamente equivalente del documento usando sinonimos y contexto:
+- "nombre" = "razon_social" = "denominacion" = "nombre_completo" = "contribuyente" = nombre de persona o empresa
+- "rfc" = "registro_federal" = "clave_rfc" = clave fiscal con homoclave
+- "domicilio" = "direccion" = "domicilio_fiscal" = "calle" = direccion completa
+- "curp" = clave unica de registro de poblacion
+- "fecha" = "fecha_nacimiento" = "vigencia" = "fecha_expedicion" = cualquier fecha relevante en DD/MM/YYYY
+- "folio" = "numero" = "id" = "clave" = numero identificador
+- "codigo_postal" = "cp" = codigo postal
+- "municipio" = "ciudad" = "localidad" = lugar
+- "estado" = entidad federativa
+- Para cualquier otro campo: infiere semanticamente cual dato del documento encaja mejor
+
+REGLAS:
+- Responde SOLO con un objeto JSON valido, sin texto adicional
+- Si genuinamente no existe ningun dato relacionado con un campo, usa null
+- Prefiere NO dejar vacio: si hay duda entre dos valores, elige el mas probable
+- Los textos en el JSON deben ser exactamente como aparecen en el documento (MAYUSCULAS si asi estan)
+
+Responde con el JSON ahora:"""
 
         img_part = genai.types.Part(
             inline_data=genai.types.Blob(mime_type=mime_type, data=image_bytes)
@@ -114,30 +128,24 @@ JSON:"""
 
         # Limpiar markdown si viene con ```json ... ```
         if '```' in raw_text:
-            parts = raw_text.split('```')
-            for part in parts:
-                part = part.strip()
-                if part.startswith('json'):
-                    part = part[4:].strip()
-                try:
-                    json.loads(part)
-                    raw_text = part
-                    break
-                except Exception:
-                    continue
+            # Extraer el contenido entre los backticks
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_text)
+            if json_match:
+                raw_text = json_match.group(1).strip()
 
         extracted = json.loads(raw_text)
-        result = {k: v for k, v in extracted.items() if v is not None and str(v).strip() != ''}
+        result = {k: v for k, v in extracted.items() if v is not None and str(v).strip() not in ('', 'null', 'N/A', 'NA')}
 
-        log_activity('OCR_EJECUTADO', f'Extraccion IA: {len(result)} campo(s)')
-        return {"status": "success", "data": result}
+        log_activity('OCR_EJECUTADO', f'Extraccion IA semantica: {len(result)}/{len(campos)} campo(s) mapeados')
+        return {"status": "success", "data": result, "total_campos": len(campos), "llenados": len(result)}
 
     except json.JSONDecodeError:
-        print(f'OCR parse error. Raw: {raw_text[:300]}')
-        return {"status": "partial", "data": {}, "error": "La IA respondio en formato inesperado"}
+        print(f'OCR JSON parse error. Raw response: {raw_text[:400]}')
+        return {"status": "partial", "data": {}, "error": "La IA no respondio en formato JSON", "raw_preview": raw_text[:200]}
     except Exception as e:
         print(f'OCR Error: {e}')
         return {"error": f"Error IA: {str(e)}"}, 500
+
 
 
 # --- 🔔 API DE NOTIFICACIONES (Relocalizado) ---
