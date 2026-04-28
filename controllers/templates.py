@@ -91,33 +91,52 @@ def api_ocr_extract():
 
         campos_str = ', '.join(campos) if campos else 'nombre, rfc, domicilio, fecha, razon_social'
 
-        prompt = f"""Eres un sistema de extraccion de datos de documentos oficiales. Sigue estos 2 pasos:
+        prompt = f"""Eres un sistema experto en extraccion de datos de documentos oficiales mexicanos (SAT, INE, Actas, Notaria, CFE, etc).
 
-PASO 1 - EXTRAE TODO:
-Lee la imagen completa e identifica todos los datos que puedas ver: nombres, fechas, numeros, RFC, CURP, direcciones, folios, montos, cargos, firmas, sellos, cualquier texto relevante.
+PASO 1 - LEE TODO EL DOCUMENTO:
+Extrae todos los datos visibles: nombres, RFC, CURP, fechas, codigos postales, direcciones, folios, regimenes, estatus, montos, cargos.
 
-PASO 2 - MAPEO SEMANTICO A CAMPOS DEL FORMULARIO:
-Los campos del formulario son: [{campos_str}]
+PASO 2 - MAPEA CADA CAMPO DEL FORMULARIO:
+Campos del formulario a llenar: [{campos_str}]
 
-Para cada campo, asigna el valor mas logicamente equivalente del documento usando sinonimos y contexto:
-- "nombre" = "razon_social" = "denominacion" = "nombre_completo" = "contribuyente" = nombre de persona o empresa
-- "rfc" = "registro_federal" = "clave_rfc" = clave fiscal con homoclave
-- "domicilio" = "direccion" = "domicilio_fiscal" = "calle" = direccion completa
-- "curp" = clave unica de registro de poblacion
-- "fecha" = "fecha_nacimiento" = "vigencia" = "fecha_expedicion" = cualquier fecha relevante en DD/MM/YYYY
-- "folio" = "numero" = "id" = "clave" = numero identificador
-- "codigo_postal" = "cp" = codigo postal
-- "municipio" = "ciudad" = "localidad" = lugar
-- "estado" = entidad federativa
-- Para cualquier otro campo: infiere semanticamente cual dato del documento encaja mejor
+Usa estos sinonimos para mapear (el nombre del campo puede variar, el significado es el mismo):
 
-REGLAS:
-- Responde SOLO con un objeto JSON valido, sin texto adicional
-- Si genuinamente no existe ningun dato relacionado con un campo, usa null
-- Prefiere NO dejar vacio: si hay duda entre dos valores, elige el mas probable
-- Los textos en el JSON deben ser exactamente como aparecen en el documento (MAYUSCULAS si asi estan)
+EMPRESA/NOMBRE: "empresa", "nombre", "razon_social", "denominacion", "nombre_comercial", "contribuyente", "nombre_completo", "razon social", "denominacion_razon_social", "nombre_empresa"
+-> Valor: nombre de la persona fisica o moral del documento
 
-Responde con el JSON ahora:"""
+RFC: "rfc", "r_f_c", "clave_rfc", "rfc_contribuyente"
+-> Valor: clave RFC incluyendo homoclave (ej: PMT231030T82)
+
+CP / CODIGO POSTAL: "cp", "codigo_postal", "c_p", "zip", "codigo postal"
+-> Valor: numero de 5 digitos del codigo postal
+
+ESTADO / ESTATUS: "estado", "estatus", "status", "estado_padron", "activo"
+-> Valor: si el documento es SAT usa el estatus del padron (ACTIVO/SUSPENDIDO). Si es direccion, usa la entidad federativa.
+
+DOMICILIO / DIRECCION: "domicilio", "direccion", "calle", "domicilio_fiscal", "address"
+-> Valor: calle, numero exterior, numero interior, colonia concatenados
+
+MUNICIPIO / CIUDAD: "municipio", "ciudad", "localidad", "alcaldia", "delegacion"
+-> Valor: municipio o ciudad del domicilio
+
+FECHA: "fecha", "fecha_inicio", "fecha_expedicion", "vigencia", "fecha_nacimiento"
+-> Valor: fecha mas relevante del documento en formato DD/MM/YYYY o como aparece
+
+REGIMEN: "regimen", "tipo_empresa", "regimen_capital", "tipo_sociedad"
+-> Valor: tipo de sociedad (SA DE CV, SAPI, Persona Fisica, etc)
+
+TECNICO / RESPONSABLE / USUARIO: "tecnico", "responsable", "usuario", "ejecutivo", "asesor"
+-> Valor: null (este campo no viene en documentos oficiales, lo llena el usuario)
+
+PARA CUALQUIER OTRO CAMPO: usa razonamiento semantico para encontrar el valor mas logico en el documento.
+
+REGLAS FINALES:
+- Responde SOLO con JSON valido, sin explicaciones
+- Copia el texto EXACTAMENTE como aparece en el documento
+- Si un campo claramente no existe en el documento, usa null
+- NO inventes datos que no esten en la imagen
+
+JSON:"""
 
         img_part = genai.types.Part(
             inline_data=genai.types.Blob(mime_type=mime_type, data=image_bytes)
