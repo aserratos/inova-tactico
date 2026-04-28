@@ -41,4 +41,4 @@ WTForms==3.2.1
 clerk-backend-api
 requests==2.31.0
 pyjwt[crypto]
-google-genai>=1.0.0
+google-generativeai==0.8.4

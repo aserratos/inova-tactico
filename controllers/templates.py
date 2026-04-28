@@ -73,48 +73,67 @@ def api_ocr_extract():
     raw_text = ''
 
     try:
-        from google import genai as google_genai
+        import google.generativeai as genai
 
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
             return {"error": "GEMINI_API_KEY no configurada en el servidor"}, 500
 
-        client = google_genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
+        # Estrategia inteligente: extraer TODO el texto del documento
+        # y luego mapear al formulario con criterio semantico
         campos_str = ', '.join(campos) if campos else 'todos los datos relevantes'
-        prompt = (
-            "Eres un experto en extraccion de datos de documentos oficiales mexicanos. "
-            f"Analiza la imagen y extrae UNICAMENTE estos campos: {campos_str}. "
-            "Responde EXCLUSIVAMENTE con un JSON valido sin explicaciones. "
-            "Usa null si el campo no existe en el documento. "
-            "Nombres en MAYUSCULAS. Fechas en DD/MM/YYYY. "
-            'Ejemplo: {"nombre_completo": "JUAN PEREZ", "rfc": "PEGJ850312AB3"}'
+        prompt = f"""Eres un asistente experto en documentos oficiales mexicanos.
+
+PASO 1: Lee TODO el texto visible en la imagen.
+PASO 2: Identifica que tipo de documento es (INE, Constancia Fiscal SAT, Acta Constitutiva, Comprobante de Domicilio, etc.)
+PASO 3: Los campos del formulario son: {campos_str}
+
+Para cada campo del formulario, busca el valor mas adecuado en el documento usando criterio semantico:
+- Si el campo se llama 'nombre', 'nombre_completo', 'razon_social', 'denominacion' -> busca el nombre de la persona o empresa
+- Si el campo se llama 'rfc' -> busca el RFC con homoclave
+- Si el campo se llama 'domicilio', 'direccion', 'calle', 'domicilio_fiscal' -> busca la direccion completa
+- Si el campo se llama 'curp' -> busca el CURP
+- Si el campo se llama 'fecha', 'fecha_nacimiento', 'vigencia' -> busca la fecha relevante en DD/MM/YYYY
+- Si el campo se llama 'folio', 'numero', 'id' -> busca cualquier numero de identificacion
+- Para cualquier otro campo, intenta inferir el valor mas logico del documento
+
+IMPORTANTE: Responde SOLO con un JSON valido. Usa null SOLO si es absolutamente imposible inferir el valor.
+Ejemplo: {{"nombre_completo": "EMPRESA EJEMPLO SA DE CV", "rfc": "EEJ850312AB3", "domicilio": "AV REFORMA 123 COL CENTRO CDMX"}}
+
+JSON:"""
+
+        img_part = genai.types.Part(
+            inline_data=genai.types.Blob(mime_type=mime_type, data=image_bytes)
         )
 
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[
-                google_genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                prompt
-            ]
-        )
+        response = model.generate_content([img_part, prompt])
         raw_text = response.text.strip()
 
-        if raw_text.startswith('`'):
-            parts = raw_text.split('`' * 3)
-            raw_text = parts[1] if len(parts) > 1 else raw_text
-            if raw_text.startswith('json'):
-                raw_text = raw_text[4:]
-            raw_text = raw_text.strip()
+        # Limpiar markdown si viene con ```json ... ```
+        if '```' in raw_text:
+            parts = raw_text.split('```')
+            for part in parts:
+                part = part.strip()
+                if part.startswith('json'):
+                    part = part[4:].strip()
+                try:
+                    json.loads(part)
+                    raw_text = part
+                    break
+                except Exception:
+                    continue
 
         extracted = json.loads(raw_text)
-        result = {k: v for k, v in extracted.items() if v is not None}
+        result = {k: v for k, v in extracted.items() if v is not None and str(v).strip() != ''}
 
         log_activity('OCR_EJECUTADO', f'Extraccion IA: {len(result)} campo(s)')
         return {"status": "success", "data": result}
 
     except json.JSONDecodeError:
-        print(f'OCR parse error. Raw: {raw_text[:200]}')
+        print(f'OCR parse error. Raw: {raw_text[:300]}')
         return {"status": "partial", "data": {}, "error": "La IA respondio en formato inesperado"}
     except Exception as e:
         print(f'OCR Error: {e}')
