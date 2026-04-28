@@ -130,20 +130,31 @@ def api_ocr_extract():
                 ]
             }],
             "generationConfig": {
-                "temperature": 0.1,
-                "responseMimeType": "application/json"
+                "temperature": 0.1
             }
         }
 
         http_resp = http_requests.post(gemini_url, json=payload, timeout=30)
-        http_resp.raise_for_status()
+        
+        # Log completo para diagnostico
+        print(f'OCR HTTP Status: {http_resp.status_code}')
+        if http_resp.status_code != 200:
+            print(f'OCR HTTP Error body: {http_resp.text[:500]}')
+            return {"error": f"Gemini API error {http_resp.status_code}: {http_resp.text[:300]}"}, 500
+        
         gemini_data = http_resp.json()
+        print(f'OCR Gemini response keys: {list(gemini_data.keys())}')
+
+        if 'error' in gemini_data:
+            err = gemini_data['error']
+            print(f'OCR Gemini error: {err}')
+            return {"error": f"Gemini: {err.get('message', str(err))}"}, 500
 
         raw_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print(f'OCR raw_text preview: {raw_text[:200]}')
 
         # Limpiar markdown si viene con ```json ... ```
         if '```' in raw_text:
-            # Extraer el contenido entre los backticks
             json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_text)
             if json_match:
                 raw_text = json_match.group(1).strip()
@@ -151,15 +162,15 @@ def api_ocr_extract():
         extracted = json.loads(raw_text)
         result = {k: v for k, v in extracted.items() if v is not None and str(v).strip() not in ('', 'null', 'N/A', 'NA')}
 
-        log_activity('OCR_EJECUTADO', f'Extraccion IA semantica: {len(result)}/{len(campos)} campo(s) mapeados')
-        return {"status": "success", "data": result, "total_campos": len(campos), "llenados": len(result)}
+        log_activity('OCR_EJECUTADO', f'Extraccion IA: {len(result)}/{len(campos)} campo(s)')
+        return {"status": "success", "data": result}
 
-    except json.JSONDecodeError:
-        print(f'OCR JSON parse error. Raw response: {raw_text[:400]}')
-        return {"status": "partial", "data": {}, "error": "La IA no respondio en formato JSON", "raw_preview": raw_text[:200]}
+    except json.JSONDecodeError as e:
+        print(f'OCR JSON parse error: {e}. Raw: {raw_text[:400]}')
+        return {"error": f"La IA respondio texto no-JSON: {raw_text[:150]}"}, 500
     except Exception as e:
-        print(f'OCR Error: {e}')
-        return {"error": f"Error IA: {str(e)}"}, 500
+        print(f'OCR Exception: {type(e).__name__}: {e}')
+        return {"error": f"{type(e).__name__}: {str(e)}"}, 500
 
 
 

@@ -180,14 +180,20 @@ export default function ReportCapture() {
 
       if (data.status === 'success' && data.data) {
         const filled = Object.keys(data.data).length;
-        // Mezclar los datos extraídos con el formulario actual (sin pisar lo ya llenado)
         setFormData(prev => ({ ...prev, ...data.data }));
-        setOcrResult(`✅ IA extrajo ${filled} campo(s) del documento exitosamente.`);
+        if (filled > 0) {
+          setOcrResult(`✅ IA extrajo ${filled} campo(s) del documento exitosamente.`);
+        } else {
+          setOcrResult('⚠️ La IA procesó el documento pero no encontró campos coincidentes.');
+        }
       } else {
-        setOcrResult('⚠️ No se pudo extraer información. Intenta con una foto más clara.');
+        // Mostrar el error real del servidor para diagnostico
+        const errorMsg = data.error || data.message || JSON.stringify(data).slice(0, 200);
+        setOcrResult(`❌ ${errorMsg}`);
       }
-    } catch (e) {
-      setOcrResult('❌ Error de conexión al procesar la imagen.');
+    } catch (e: any) {
+      setOcrResult(`❌ Error de red: ${e?.message || 'sin detalles'}`);
+
     } finally {
       setOcrLoading(false);
     }
