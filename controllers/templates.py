@@ -117,11 +117,6 @@ def api_ocr_extract():
 
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
-        gemini_url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.5-flash:generateContent?key={api_key}"
-        )
-
         payload = {
             "contents": [{
                 "parts": [
@@ -129,29 +124,39 @@ def api_ocr_extract():
                     {"text": prompt_text}
                 ]
             }],
-            "generationConfig": {
-                "temperature": 0.1
-            }
+            "generationConfig": {"temperature": 0.1}
         }
 
-        http_resp = http_requests.post(gemini_url, json=payload, timeout=30)
-        
-        # Log completo para diagnostico (sin exponer la API key)
-        print(f'OCR HTTP Status: {http_resp.status_code}')
-        if http_resp.status_code == 429:
-            return {"error": "Cuota de Gemini agotada (429). Espera 1 minuto e intenta de nuevo."}, 429
-        if http_resp.status_code != 200:
-            # Quitar la API key del mensaje de error antes de enviarlo al frontend
-            safe_error = http_resp.text[:300].replace(api_key, '***API_KEY***')
-            print(f'OCR HTTP Error body: {safe_error}')
-            return {"error": f"Gemini API error {http_resp.status_code}: {safe_error}"}, 500
-        
-        gemini_data = http_resp.json()
-        print(f'OCR Gemini response keys: {list(gemini_data.keys())}')
+        # Cadena de modelos: si uno falla por cuota (429) o saturacion (503), intenta el siguiente
+        MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite']
+        http_resp = None
+        used_model = None
 
+        for model in MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            print(f'OCR intentando modelo: {model}')
+            http_resp = http_requests.post(url, json=payload, timeout=30)
+            print(f'OCR HTTP Status ({model}): {http_resp.status_code}')
+
+            if http_resp.status_code == 200:
+                used_model = model
+                break  # Exito, salir del loop
+            elif http_resp.status_code in (429, 503):
+                print(f'OCR {http_resp.status_code} en {model}, intentando siguiente...')
+                continue  # Intentar el siguiente modelo
+            else:
+                # Error diferente (400, 401, etc) — no tiene sentido reintentar
+                safe_error = http_resp.text[:300].replace(api_key, '***')
+                return {"error": f"Gemini error {http_resp.status_code}: {safe_error}"}, 500
+
+        if not used_model:
+            return {"error": "Todos los modelos de Gemini estan saturados. Intenta en 1-2 minutos."}, 503
+
+        print(f'OCR usando modelo: {used_model}')
+
+        gemini_data = http_resp.json()
         if 'error' in gemini_data:
             err = gemini_data['error']
-            print(f'OCR Gemini error: {err}')
             return {"error": f"Gemini: {err.get('message', str(err))}"}, 500
 
         raw_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
