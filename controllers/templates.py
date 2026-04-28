@@ -80,14 +80,14 @@ def api_ocr_extract():
     raw_text = ''
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types as genai_types
 
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
             return {"error": "GEMINI_API_KEY no configurada en el servidor"}, 500
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=api_key)
 
         campos_str = ', '.join(campos) if campos else 'nombre, rfc, domicilio, fecha, razon_social'
 
@@ -138,11 +138,15 @@ REGLAS FINALES:
 
 JSON:"""
 
-        img_part = genai.types.Part(
-            inline_data=genai.types.Blob(mime_type=mime_type, data=image_bytes)
+        import base64
+        image_b64 = base64.standard_b64encode(image_bytes).decode('utf-8')
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt
+            ]
         )
-
-        response = model.generate_content([img_part, prompt])
         raw_text = response.text.strip()
 
         # Limpiar markdown si viene con ```json ... ```
