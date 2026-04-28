@@ -80,74 +80,66 @@ def api_ocr_extract():
     raw_text = ''
 
     try:
-        from google import genai
-        from google.genai import types as genai_types
+        import requests as http_requests
+        import base64
 
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
             return {"error": "GEMINI_API_KEY no configurada en el servidor"}, 500
 
-        client = genai.Client(api_key=api_key)
-
         campos_str = ', '.join(campos) if campos else 'nombre, rfc, domicilio, fecha, razon_social'
 
-        prompt = f"""Eres un sistema experto en extraccion de datos de documentos oficiales mexicanos (SAT, INE, Actas, Notaria, CFE, etc).
-
-PASO 1 - LEE TODO EL DOCUMENTO:
-Extrae todos los datos visibles: nombres, RFC, CURP, fechas, codigos postales, direcciones, folios, regimenes, estatus, montos, cargos.
-
-PASO 2 - MAPEA CADA CAMPO DEL FORMULARIO:
-Campos del formulario a llenar: [{campos_str}]
-
-Usa estos sinonimos para mapear (el nombre del campo puede variar, el significado es el mismo):
-
-EMPRESA/NOMBRE: "empresa", "nombre", "razon_social", "denominacion", "nombre_comercial", "contribuyente", "nombre_completo", "razon social", "denominacion_razon_social", "nombre_empresa"
--> Valor: nombre de la persona fisica o moral del documento
-
-RFC: "rfc", "r_f_c", "clave_rfc", "rfc_contribuyente"
--> Valor: clave RFC incluyendo homoclave (ej: PMT231030T82)
-
-CP / CODIGO POSTAL: "cp", "codigo_postal", "c_p", "zip", "codigo postal"
--> Valor: numero de 5 digitos del codigo postal
-
-ESTADO / ESTATUS: "estado", "estatus", "status", "estado_padron", "activo"
--> Valor: si el documento es SAT usa el estatus del padron (ACTIVO/SUSPENDIDO). Si es direccion, usa la entidad federativa.
-
-DOMICILIO / DIRECCION: "domicilio", "direccion", "calle", "domicilio_fiscal", "address"
--> Valor: calle, numero exterior, numero interior, colonia concatenados
-
-MUNICIPIO / CIUDAD: "municipio", "ciudad", "localidad", "alcaldia", "delegacion"
--> Valor: municipio o ciudad del domicilio
-
-FECHA: "fecha", "fecha_inicio", "fecha_expedicion", "vigencia", "fecha_nacimiento"
--> Valor: fecha mas relevante del documento en formato DD/MM/YYYY o como aparece
-
-REGIMEN: "regimen", "tipo_empresa", "regimen_capital", "tipo_sociedad"
--> Valor: tipo de sociedad (SA DE CV, SAPI, Persona Fisica, etc)
-
-TECNICO / RESPONSABLE / USUARIO: "tecnico", "responsable", "usuario", "ejecutivo", "asesor"
--> Valor: null (este campo no viene en documentos oficiales, lo llena el usuario)
-
-PARA CUALQUIER OTRO CAMPO: usa razonamiento semantico para encontrar el valor mas logico en el documento.
-
-REGLAS FINALES:
-- Responde SOLO con JSON valido, sin explicaciones
-- Copia el texto EXACTAMENTE como aparece en el documento
-- Si un campo claramente no existe en el documento, usa null
-- NO inventes datos que no esten en la imagen
-
-JSON:"""
-
-        import base64
-        image_b64 = base64.standard_b64encode(image_bytes).decode('utf-8')
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[
-                genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                prompt
-            ]
+        prompt_text = (
+            "Eres un sistema experto en extraccion de datos de documentos oficiales mexicanos "
+            "(SAT, INE, Actas Constitutivas, Comprobantes de Domicilio, etc). "
+            "Sigue estos 2 pasos:\n\n"
+            "PASO 1: Lee TODO el texto visible en la imagen del documento.\n"
+            "PASO 2: Mapea los datos al siguiente formulario usando sinonimos e inferencia semantica.\n\n"
+            f"CAMPOS DEL FORMULARIO: {campos_str}\n\n"
+            "REGLAS DE MAPEO (el nombre del campo varia pero el significado es el mismo):\n"
+            "- empresa, nombre, razon_social, denominacion, contribuyente, nombre_empresa -> nombre de persona o empresa\n"
+            "- rfc, clave_rfc, r_f_c -> clave RFC con homoclave (ej: PMT231030T82)\n"
+            "- cp, codigo_postal, zip, c_p -> codigo postal de 5 digitos\n"
+            "- estado, estatus, status, estado_padron -> estatus SAT (ACTIVO) o entidad federativa\n"
+            "- domicilio, direccion, calle, domicilio_fiscal -> direccion completa\n"
+            "- municipio, ciudad, localidad, delegacion, alcaldia -> municipio o ciudad\n"
+            "- fecha, vigencia, fecha_inicio, fecha_expedicion -> fecha relevante en DD/MM/YYYY\n"
+            "- regimen, tipo_empresa, tipo_sociedad -> tipo de sociedad o regimen fiscal\n"
+            "- tecnico, responsable, usuario, asesor -> null (no viene en documentos oficiales)\n"
+            "- CUALQUIER OTRO CAMPO: usa inferencia semantica para encontrar el valor mas logico\n\n"
+            "IMPORTANTE:\n"
+            "- Responde SOLO con un JSON valido, sin texto adicional\n"
+            "- Copia el texto EXACTAMENTE como aparece en el documento\n"
+            "- Usa null solo si el dato genuinamente no existe en la imagen\n"
+            "- NO inventes datos\n\n"
+            "JSON:"
         )
-        raw_text = response.text.strip()
+
+        image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+        gemini_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.0-flash:generateContent?key={api_key}"
+        )
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"inline_data": {"mime_type": mime_type, "data": image_b64}},
+                    {"text": prompt_text}
+                ]
+            }],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json"
+            }
+        }
+
+        http_resp = http_requests.post(gemini_url, json=payload, timeout=30)
+        http_resp.raise_for_status()
+        gemini_data = http_resp.json()
+
+        raw_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
 
         # Limpiar markdown si viene con ```json ... ```
         if '```' in raw_text:
