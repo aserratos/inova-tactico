@@ -49,256 +49,77 @@ def dashboard():
                           draft_reports=draft_reports,
                           logs=logs)
 
-# --- 🔌 API DE REACT PWA ---
-
-@templates_bp.route('/api/reports')
-@login_required
-def get_reports_api():
-    org_id = getattr(g, 'org_id', None)
-    org_role = getattr(g, 'org_role', 'tecnico')
-
-    # Construir query base filtrada por organizacion
-    base_q = ReportInstance.query
-    if org_id:
-        base_q = base_q.filter(ReportInstance.clerk_org_id == org_id)
-
-    # Supervisores y admins ven todos los reportes de la organizacion
-    if org_role in ('admin', 'supervisor') or g.current_user.is_admin:
-        draft_reports = base_q.order_by(ReportInstance.fecha_actualizacion.desc()).all()
-    else:
-        draft_reports = base_q.filter(
-            (ReportInstance.assigned_to_id == g.current_user.id) |
-            (ReportInstance.created_by_id == g.current_user.id)
-        ).order_by(ReportInstance.fecha_actualizacion.desc()).all()
-        
-    reports_data = []
-    for r in draft_reports:
-        template = r.template
-        variables_list = json.loads(template.variables_json or '[]') if template else []
-        text_vars = [v for v in variables_list if not SmartDocxTemplate.is_image_var(v)]
-        image_vars = [v for v in variables_list if SmartDocxTemplate.is_image_var(v)]
-        
-        reports_data.append({
-            'id': r.id,
-            'nombre': r.nombre,
-            'status': r.status,
-            'porcentaje_avance': r.porcentaje_avance,
-            'fecha_actualizacion': r.fecha_actualizacion.strftime('%d %b'),
-            'asignado': r.assigned_to.nombre_completo if r.assigned_to and r.assigned_to.nombre_completo else 'Sin Asignar',
-            'asignado_iniciales': ''.join([n[0] for n in (r.assigned_to.nombre_completo or '').split()[:2]]) if r.assigned_to and r.assigned_to.nombre_completo else '??',
-            'has_compiled_file': bool(r.archivo_compilado_path and (os.path.exists(r.archivo_compilado_path) or 'templates/' in r.archivo_compilado_path)),
-            'template_name': template.nombre if template else '',
-            'text_vars': text_vars,
-            'image_vars': image_vars,
-            'data_json': r.data_json or '{}'
-        })
-        
-    return {"reports": reports_data}
-
-@templates_bp.route('/api/templates')
-@login_required
-def api_get_templates():
-    org_id = getattr(g, 'org_id', None)
-    if org_id:
-        # Multi-tenant: solo plantillas de la organizacion activa
-        templates = Template.query.filter(
-            Template.clerk_org_id == org_id
-        ).order_by(Template.fecha_subida.desc()).all()
-    else:
-        # Fallback: usuario sin organizacion ve todas (admin personal)
-        templates = Template.query.order_by(Template.fecha_subida.desc()).all()
-    return {"templates": [{"id": t.id, "nombre": t.nombre} for t in templates]}
-
-@templates_bp.route('/api/report/<int:instance_id>', methods=['GET'])
-@login_required
-def api_get_report(instance_id):
-    report = db.session.get(ReportInstance, instance_id)
-    if not report:
-        return {"error": "No encontrado"}, 404
-        
-    template = report.template
-    variables_list = json.loads(template.variables_json or '[]')
-    
-    text_vars = [v for v in variables_list if not SmartDocxTemplate.is_image_var(v)]
-    image_vars = [v for v in variables_list if SmartDocxTemplate.is_image_var(v)]
-    
-    saved_data = json.loads(report.data_json or '{}')
-    
-    return {
-        "id": report.id,
-        "nombre": report.nombre,
-        "status": report.status,
-        "template_name": template.nombre,
-        "text_vars": text_vars,
-        "image_vars": image_vars,
-        "saved_data": saved_data
-    }
-
-@templates_bp.route('/api/report/save/<int:instance_id>', methods=['POST'])
-@login_required
-def api_save_report(instance_id):
-    report = db.session.get(ReportInstance, instance_id)
-    if not report: 
-        return {"error": "No encontrado"}, 404
-    
-    # Use centralized logic (it reads request.form and request.files)
-    save_report_logic(report, request, g.current_user)
-    
-    db.session.commit()
-    return {"status": "success"}
-
-@templates_bp.route('/api/report/start/<int:template_id>', methods=['POST'])
-@login_required
-def api_start_report(template_id):
-    template = db.session.get(Template, template_id)
-    if not template:
-        return {"error": "Plantilla no encontrada"}, 404
-        
-    if template.variables_json:
-        variables_list = json.loads(template.variables_json)
-        total = len(variables_list)
-    else:
-        try:
-            doc = SmartDocxTemplate(template.ruta_archivo_docx)
-            variables_list = list(doc.get_undeclared_template_variables())
-            template.variables_json = json.dumps(variables_list)
-            db.session.commit()
-            total = len(variables_list)
-        except Exception:
-            total = 0
-
-    new_report = ReportInstance(
-        template_id=template.id,
-        nombre=f"{template.nombre} - {datetime.now().strftime('%d/%m %H:%M')}",
-        created_by_id=g.current_user.id,
-        assigned_to_id=g.current_user.id,
-        total_campos=total,
-        porcentaje_avance=0,
-        clerk_org_id=getattr(g, 'org_id', None)  # Sellar el reporte con la org activa
-    )
-    db.session.add(new_report)
-    db.session.commit()
-    log_activity('REPORTE_INICIADO_API', f'Inicio nuevo levantamiento: {template.nombre}')
-    
-    return {"status": "success", "id": new_report.id}
-
-@templates_bp.route('/api/report/compile/<int:instance_id>', methods=['POST'])
-@login_required
-def api_compile_report(instance_id):
-    report = db.session.get(ReportInstance, instance_id)
-    if not report: return {"error": "No encontrado"}, 404
-    
-    if report.porcentaje_avance < 100:
-        return {"error": f"Incompleto (Avance: {report.porcentaje_avance}%)"}, 400
-    
-    app = current_app._get_current_object()
-    executor.submit(background_compile_task, app, report.id, g.current_user.id)
-    
-    return {"status": "success"}
-
-@templates_bp.route('/api/report/download/<int:instance_id>')
-@login_required
-def api_download_report(instance_id):
-    report = db.session.get(ReportInstance, instance_id)
-    if not report or not report.archivo_compilado_path:
-        return {"error": "Archivo no encontrado"}, 404
-        
-    if os.path.exists(report.archivo_compilado_path):
-        return send_file(
-            report.archivo_compilado_path,
-            as_attachment=True,
-            download_name=f"{report.nombre}.docx",
-            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-    else:
-        from services.storage_service import get_presigned_url
-        url = get_presigned_url(report.archivo_compilado_path)
-        if url:
-            return {"url": url} # Send URL for PWA to redirect/download
-        else:
-            return {"error": "Enlace caducado"}, 404
-
-# --- 🤖 API DE VISION IA (OCR) ---
+# --- OCR: Vision IA ---
 
 @templates_bp.route('/api/ocr/extract', methods=['POST'])
 @login_required
 def api_ocr_extract():
-    """
-    Recibe una imagen (credencial, acta, constancia fiscal, etc.) y una lista de
-    campos que necesita el formulario. Usa Google Gemini Vision para extraer
-    los datos estructurados y devuelve un diccionario campo→valor.
-    """
     if 'image' not in request.files:
-        return {"error": "No se recibió imagen"}, 400
+        return {"error": "No se recibio imagen"}, 400
 
     image_file = request.files['image']
-    # Campos que el formulario necesita llenar (enviados como JSON string)
+    mime_type = image_file.mimetype or 'image/jpeg'
+
+    if not mime_type.startswith('image/'):
+        return {"error": "Solo se aceptan imagenes (JPG, PNG). Los PDFs no son compatibles."}, 400
+
     campos_raw = request.form.get('campos', '[]')
     try:
         campos = json.loads(campos_raw)
     except Exception:
         campos = []
 
-    # Leer bytes de la imagen
     image_bytes = image_file.read()
-    mime_type = image_file.mimetype or 'image/jpeg'
+    raw_text = ''
 
     try:
-        import google.generativeai as genai
+        from google import genai as google_genai
 
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
             return {"error": "GEMINI_API_KEY no configurada en el servidor"}, 500
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = google_genai.Client(api_key=api_key)
 
-        # Construir el prompt con los campos del formulario
         campos_str = ', '.join(campos) if campos else 'todos los datos relevantes'
-        prompt = f"""Eres un experto en extracción de datos de documentos oficiales mexicanos.
-Analiza la imagen de este documento y extrae ÚNICAMENTE los siguientes campos: {campos_str}.
+        prompt = (
+            "Eres un experto en extraccion de datos de documentos oficiales mexicanos. "
+            f"Analiza la imagen y extrae UNICAMENTE estos campos: {campos_str}. "
+            "Responde EXCLUSIVAMENTE con un JSON valido sin explicaciones. "
+            "Usa null si el campo no existe en el documento. "
+            "Nombres en MAYUSCULAS. Fechas en DD/MM/YYYY. "
+            'Ejemplo: {"nombre_completo": "JUAN PEREZ", "rfc": "PEGJ850312AB3"}'
+        )
 
-Reglas estrictas:
-- Responde EXCLUSIVAMENTE con un objeto JSON válido, sin explicaciones ni texto adicional.
-- Las claves del JSON deben coincidir EXACTAMENTE con los nombres de campo proporcionados (usa guiones bajos, sin espacios).
-- Si un campo no se encuentra en el documento, asígnale el valor null.
-- Para fechas, usa el formato DD/MM/YYYY.
-- Para el RFC, incluye la homoclave.
-- Para nombres, escríbelos en MAYÚSCULAS tal como aparecen en el documento.
-
-Ejemplo de respuesta esperada:
-{{"nombre_completo": "JUAN PÉREZ GARCÍA", "rfc": "PEGJ850312AB3", "domicilio": "AV. REFORMA 123 COL. CENTRO"}}
-
-Responde SOLO con el JSON:"""
-
-        image_part = {
-            "mime_type": mime_type,
-            "data": image_bytes
-        }
-
-        response = model.generate_content([prompt, image_part])
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                google_genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt
+            ]
+        )
         raw_text = response.text.strip()
 
-        # Limpiar posibles bloques de código markdown
-        if raw_text.startswith('```'):
-            raw_text = raw_text.split('```')[1]
+        if raw_text.startswith('`'):
+            parts = raw_text.split('`' * 3)
+            raw_text = parts[1] if len(parts) > 1 else raw_text
             if raw_text.startswith('json'):
                 raw_text = raw_text[4:]
             raw_text = raw_text.strip()
 
         extracted = json.loads(raw_text)
-        # Filtrar valores nulos
         result = {k: v for k, v in extracted.items() if v is not None}
 
-        log_activity('OCR_EJECUTADO', f'Extracción IA en {len(result)} campo(s) de documento')
+        log_activity('OCR_EJECUTADO', f'Extraccion IA: {len(result)} campo(s)')
         return {"status": "success", "data": result}
 
     except json.JSONDecodeError:
-        return {"status": "partial", "data": {}, "raw": raw_text,
-                "error": "La IA respondió en formato inesperado"}
+        print(f'OCR parse error. Raw: {raw_text[:200]}')
+        return {"status": "partial", "data": {}, "error": "La IA respondio en formato inesperado"}
     except Exception as e:
-        print(f"OCR Error: {e}")
-        return {"error": f"Error al procesar imagen con IA: {str(e)}"}, 500
+        print(f'OCR Error: {e}')
+        return {"error": f"Error IA: {str(e)}"}, 500
+
 
 # --- 🔔 API DE NOTIFICACIONES (Relocalizado) ---
 
