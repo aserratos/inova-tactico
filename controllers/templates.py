@@ -220,6 +220,88 @@ def api_download_report(instance_id):
         else:
             return {"error": "Enlace caducado"}, 404
 
+# --- 🤖 API DE VISION IA (OCR) ---
+
+@templates_bp.route('/api/ocr/extract', methods=['POST'])
+@login_required
+def api_ocr_extract():
+    """
+    Recibe una imagen (credencial, acta, constancia fiscal, etc.) y una lista de
+    campos que necesita el formulario. Usa Google Gemini Vision para extraer
+    los datos estructurados y devuelve un diccionario campo→valor.
+    """
+    if 'image' not in request.files:
+        return {"error": "No se recibió imagen"}, 400
+
+    image_file = request.files['image']
+    # Campos que el formulario necesita llenar (enviados como JSON string)
+    campos_raw = request.form.get('campos', '[]')
+    try:
+        campos = json.loads(campos_raw)
+    except Exception:
+        campos = []
+
+    # Leer bytes de la imagen
+    image_bytes = image_file.read()
+    mime_type = image_file.mimetype or 'image/jpeg'
+
+    try:
+        import google.generativeai as genai
+
+        api_key = os.environ.get('GEMINI_API_KEY')
+        if not api_key:
+            return {"error": "GEMINI_API_KEY no configurada en el servidor"}, 500
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        # Construir el prompt con los campos del formulario
+        campos_str = ', '.join(campos) if campos else 'todos los datos relevantes'
+        prompt = f"""Eres un experto en extracción de datos de documentos oficiales mexicanos.
+Analiza la imagen de este documento y extrae ÚNICAMENTE los siguientes campos: {campos_str}.
+
+Reglas estrictas:
+- Responde EXCLUSIVAMENTE con un objeto JSON válido, sin explicaciones ni texto adicional.
+- Las claves del JSON deben coincidir EXACTAMENTE con los nombres de campo proporcionados (usa guiones bajos, sin espacios).
+- Si un campo no se encuentra en el documento, asígnale el valor null.
+- Para fechas, usa el formato DD/MM/YYYY.
+- Para el RFC, incluye la homoclave.
+- Para nombres, escríbelos en MAYÚSCULAS tal como aparecen en el documento.
+
+Ejemplo de respuesta esperada:
+{{"nombre_completo": "JUAN PÉREZ GARCÍA", "rfc": "PEGJ850312AB3", "domicilio": "AV. REFORMA 123 COL. CENTRO"}}
+
+Responde SOLO con el JSON:"""
+
+        image_part = {
+            "mime_type": mime_type,
+            "data": image_bytes
+        }
+
+        response = model.generate_content([prompt, image_part])
+        raw_text = response.text.strip()
+
+        # Limpiar posibles bloques de código markdown
+        if raw_text.startswith('```'):
+            raw_text = raw_text.split('```')[1]
+            if raw_text.startswith('json'):
+                raw_text = raw_text[4:]
+            raw_text = raw_text.strip()
+
+        extracted = json.loads(raw_text)
+        # Filtrar valores nulos
+        result = {k: v for k, v in extracted.items() if v is not None}
+
+        log_activity('OCR_EJECUTADO', f'Extracción IA en {len(result)} campo(s) de documento')
+        return {"status": "success", "data": result}
+
+    except json.JSONDecodeError:
+        return {"status": "partial", "data": {}, "raw": raw_text,
+                "error": "La IA respondió en formato inesperado"}
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        return {"error": f"Error al procesar imagen con IA: {str(e)}"}, 500
+
 # --- 🔔 API DE NOTIFICACIONES (Relocalizado) ---
 
 @templates_bp.route('/api/notifications/unread')

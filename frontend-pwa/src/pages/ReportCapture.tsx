@@ -1,7 +1,7 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Mic, MicOff, Save, ChevronLeft } from 'lucide-react';
+import { Camera, Mic, MicOff, Save, ChevronLeft, Sparkles, X } from 'lucide-react';
 import { db } from '../lib/db';
 
 interface ReportDetails {
@@ -29,6 +29,11 @@ export default function ReportCapture() {
   // State para el micrófono (cuál variable está grabando)
   const [recordingVar, setRecordingVar] = useState<string | null>(null);
   
+  // OCR / IA Vision
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const ocrInputRef = useRef<HTMLInputElement | null>(null);
+
   const recognitionRef = useRef<any>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -155,6 +160,39 @@ export default function ReportCapture() {
     }
   };
 
+  // --- OCR: Autollenar con IA ---
+  const handleOcrScan = async (file: File) => {
+    if (!report) return;
+    setOcrLoading(true);
+    setOcrResult(null);
+
+    const payload = new FormData();
+    payload.append('image', file);
+    // Enviar los nombres de los campos de texto para que la IA sepa qué buscar
+    payload.append('campos', JSON.stringify(report.text_vars));
+
+    try {
+      const res = await apiFetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/ocr/extract`,
+        { method: 'POST', body: payload }
+      );
+      const data = await res.json();
+
+      if (data.status === 'success' && data.data) {
+        const filled = Object.keys(data.data).length;
+        // Mezclar los datos extraídos con el formulario actual (sin pisar lo ya llenado)
+        setFormData(prev => ({ ...prev, ...data.data }));
+        setOcrResult(`✅ IA extrajo ${filled} campo(s) del documento exitosamente.`);
+      } else {
+        setOcrResult('⚠️ No se pudo extraer información. Intenta con una foto más clara.');
+      }
+    } catch (e) {
+      setOcrResult('❌ Error de conexión al procesar la imagen.');
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!id) return;
     setSaving(true);
@@ -223,6 +261,7 @@ export default function ReportCapture() {
 
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden pb-20 md:pb-0">
+      {/* Header */}
       <div className="bg-corporate-dark px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center space-x-3">
           <button onClick={() => navigate('/')} className="text-gray-300 hover:text-white transition-colors">
@@ -233,7 +272,43 @@ export default function ReportCapture() {
             <p className="text-blue-200 text-sm">{report.template_name}</p>
           </div>
         </div>
+        {/* Botón OCR IA */}
+        <button
+          onClick={() => ocrInputRef.current?.click()}
+          disabled={ocrLoading}
+          className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg disabled:opacity-50"
+          title="Autollenar con foto de documento"
+        >
+          {ocrLoading ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Sparkles size={16} />
+          )}
+          <span className="hidden sm:inline">{ocrLoading ? 'Leyendo...' : 'Autollenar IA'}</span>
+        </button>
+        {/* Input oculto para la imagen OCR */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={ocrInputRef}
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.[0]) handleOcrScan(e.target.files[0]);
+          }}
+        />
       </div>
+
+      {/* Banner de resultado OCR */}
+      {ocrResult && (
+        <div className={`mx-6 mt-4 px-4 py-3 rounded-lg text-sm font-medium flex items-center justify-between ${
+          ocrResult.startsWith('✅') ? 'bg-green-50 text-green-800 border border-green-200' :
+          ocrResult.startsWith('⚠️') ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
+          'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          <span>{ocrResult}</span>
+          <button onClick={() => setOcrResult(null)}><X size={16} /></button>
+        </div>
+      )}
 
       <div className="p-6 space-y-8">
         
