@@ -1,20 +1,19 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
-import { UserButton, useUser, OrganizationSwitcher } from '@clerk/clerk-react';
-import { useState, useEffect } from 'react';
+import { UserButton, useUser, OrganizationSwitcher, useAuth } from '@clerk/clerk-react';
 import { SyncEngine } from '../components/SyncEngine';
 
 export default function DashboardLayout() {
   const location = useLocation();
   const { user } = useUser();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { has, orgRole } = useAuth();
 
-  // Todo: En el futuro podemos leer el rol desde la base de datos o desde Clerk Metadata.
-  // Por ahora lo simulamos basado en el correo o puedes habilitarlo por defecto.
-  useEffect(() => {
-    // TEMPORAL: Todos son admin para efectos de la demo
-    setIsAdmin(true);
-  }, [user]);
+  // isAdmin: true si el usuario es org:admin o supervisor en Clerk
+  const isAdmin = orgRole === 'org:admin' || orgRole === 'org:supervisor' ||
+                  has?.({ permission: 'org:sys_profile_manage' }) === true;
+
+  // canManageTemplates: tiene el permiso especifico configurado en Clerk
+  const canManageTemplates = isAdmin || has?.({ permission: 'manage_plantillas' }) === true;
 
   return (
     <div className="min-h-screen bg-corporate-light flex flex-col md:flex-row">
@@ -47,19 +46,21 @@ export default function DashboardLayout() {
             <span className="font-medium">Ajustes</span>
           </Link>
           
-          {/* Admin routes hidden for now unless isAdmin */}
+          {/* Seccion Admin: visible segun rol de Clerk */}
           {isAdmin && (
             <>
               <div className="pt-4 pb-1">
                 <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Admin</p>
               </div>
-              <Link 
-                to="/admin/templates" 
-                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/templates') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <FileText size={18} />
-                <span className="font-medium text-sm">Plantillas</span>
-              </Link>
+              {canManageTemplates && (
+                <Link 
+                  to="/admin/templates" 
+                  className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/templates') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <FileText size={18} />
+                  <span className="font-medium text-sm">Plantillas</span>
+                </Link>
+              )}
               <Link 
                 to="/team" 
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/team') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -76,6 +77,7 @@ export default function DashboardLayout() {
               </Link>
             </>
           )}
+
         </nav>
         <div className="p-4 border-t border-gray-200 flex flex-col space-y-3">
           <div className="flex items-center space-x-2 w-full">

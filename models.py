@@ -27,6 +27,7 @@ class Template(db.Model):
     is_favorite = db.Column(db.Boolean, default=False)
     is_public = db.Column(db.Boolean, default=False)
     variables_json = db.Column(db.Text, default='[]') # Lista de qué campos tiene el Word
+    clerk_org_id = db.Column(db.String(100), nullable=True)  # Multi-tenant: organización dueña
     
     # Relationship with User
     uploader = db.relationship('User', backref=db.backref('templates', lazy=True))
@@ -47,6 +48,7 @@ class ReportInstance(db.Model):
     total_campos = db.Column(db.Integer, default=0) # Cuantos campos tiene la plantilla
     campos_llenados = db.Column(db.Integer, default=0) # Cuantos campos han sido contestados
     archivo_compilado_path = db.Column(db.String(300), nullable=True) # Ruta del Word generado
+    clerk_org_id = db.Column(db.String(100), nullable=True)  # Multi-tenant: organización dueña
     
     template = db.relationship('Template', backref=db.backref('instances', lazy=True))
     creator = db.relationship('User', foreign_keys=[created_by_id], backref=db.backref('created_reports', lazy=True))
@@ -58,6 +60,7 @@ class ActivityLog(db.Model):
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    clerk_org_id = db.Column(db.String(100), nullable=True)  # Multi-tenant: organización dueña
     
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('activities', lazy='dynamic'))
 

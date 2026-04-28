@@ -3,8 +3,6 @@ import jwt
 import requests
 from functools import wraps
 from flask import request, jsonify, g
-from cryptography.x509 import load_pem_x509_certificate
-from cryptography.hazmat.backends import default_backend
 from models import db, User
 
 CLERK_JWKS_URL = "https://saved-spaniel-72.clerk.accounts.dev/.well-known/jwks.json"
@@ -37,7 +35,7 @@ def require_auth(f):
             if not kid:
                 raise ValueError("No kid found in token header")
                 
-            # Buscar la llave pública correspondiente en el JWKS
+            # Buscar la llave publica correspondiente en el JWKS
             jwks = get_jwks()
             rsa_key = {}
             for key in jwks['keys']:
@@ -54,7 +52,7 @@ def require_auth(f):
             if not rsa_key:
                 raise ValueError("Public key not found in JWKS")
                 
-            # Convertir el JWK a formato PEM de cryptography usando pyjwt algorithm
+            # Convertir el JWK a formato PEM usando pyjwt
             public_key = jwt.algorithms.RSAAlgorithm.from_jwk(rsa_key)
             
             # Verificar el token
@@ -66,13 +64,25 @@ def require_auth(f):
                 issuer=CLERK_ISSUER
             )
             
-            # Clerk user_id
+            # --- Identidad del Usuario ---
             clerk_id = payload.get('sub')
-            
+
+            # --- Organizacion Activa (Multi-tenant) ---
+            # Clerk incrusta 'org_id' y 'org_role' en el JWT cuando el usuario
+            # tiene una organizacion activa en la sesion.
+            g.org_id   = payload.get('org_id')    # ej: "org_2abc123..."
+            g.org_role = payload.get('org_role')   # ej: "org:admin", "supervisor", "tecnico"
+
+            # Normalizar el rol quitando el prefijo "org:" si existe
+            if g.org_role and g.org_role.startswith('org:'):
+                g.org_role = g.org_role.replace('org:', '')
+
+            # Permisos del usuario en la organizacion (lista de strings)
+            g.org_permissions = payload.get('org_permissions', [])
+
             # Buscar o crear al usuario en nuestra base de datos local
             user = User.query.filter_by(clerk_id=clerk_id).first()
             if not user:
-                # Si el usuario no existe por clerk_id, obtener su email real usando la API de Clerk
                 email = None
                 clerk_secret = os.environ.get('CLERK_SECRET_KEY')
                 if clerk_secret:
@@ -88,7 +98,6 @@ def require_auth(f):
                 if not email:
                     email = payload.get('email') or f"{clerk_id}@clerk.dev"
                 
-                # Intentar ligar con un usuario existente usando el email
                 user = User.query.filter_by(email=email).first()
                 if user:
                     user.clerk_id = clerk_id
@@ -113,3 +122,29 @@ def require_auth(f):
         return f(*args, **kwargs)
         
     return decorated
+
+
+def require_permission(permission):
+    """Decorador adicional para validar permisos especificos de Clerk.
+
+    Uso:
+        @require_auth
+        @require_permission('manage_plantillas')
+        def mi_endpoint(): ...
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            org_perms = getattr(g, 'org_permissions', [])
+            org_role  = getattr(g, 'org_role', '')
+            # El admin de la org siempre tiene acceso total
+            if org_role == 'admin':
+                return f(*args, **kwargs)
+            if permission not in org_perms:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Permiso requerido: {permission}'
+                }), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator

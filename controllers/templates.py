@@ -56,11 +56,21 @@ def dashboard():
 @templates_bp.route('/api/reports')
 @login_required
 def get_reports_api():
-    if g.current_user.is_admin or g.current_user.role == 'supervisor':
-        draft_reports = ReportInstance.query.order_by(ReportInstance.fecha_actualizacion.desc()).all()
+    org_id = getattr(g, 'org_id', None)
+    org_role = getattr(g, 'org_role', 'tecnico')
+
+    # Construir query base filtrada por organizacion
+    base_q = ReportInstance.query
+    if org_id:
+        base_q = base_q.filter(ReportInstance.clerk_org_id == org_id)
+
+    # Supervisores y admins ven todos los reportes de la organizacion
+    if org_role in ('admin', 'supervisor') or g.current_user.is_admin:
+        draft_reports = base_q.order_by(ReportInstance.fecha_actualizacion.desc()).all()
     else:
-        draft_reports = ReportInstance.query.filter(
-            (ReportInstance.assigned_to_id == g.current_user.id) | (ReportInstance.created_by_id == g.current_user.id)
+        draft_reports = base_q.filter(
+            (ReportInstance.assigned_to_id == g.current_user.id) |
+            (ReportInstance.created_by_id == g.current_user.id)
         ).order_by(ReportInstance.fecha_actualizacion.desc()).all()
         
     reports_data = []
@@ -90,8 +100,15 @@ def get_reports_api():
 @templates_bp.route('/api/templates')
 @login_required
 def api_get_templates():
-    # TEMPORAL: Mostrar TODAS las plantillas sin importar quién las subió o si son públicas
-    templates = Template.query.order_by(Template.fecha_subida.desc()).all()
+    org_id = getattr(g, 'org_id', None)
+    if org_id:
+        # Multi-tenant: solo plantillas de la organizacion activa
+        templates = Template.query.filter(
+            Template.clerk_org_id == org_id
+        ).order_by(Template.fecha_subida.desc()).all()
+    else:
+        # Fallback: usuario sin organizacion ve todas (admin personal)
+        templates = Template.query.order_by(Template.fecha_subida.desc()).all()
     return {"templates": [{"id": t.id, "nombre": t.nombre} for t in templates]}
 
 @templates_bp.route('/api/report/<int:instance_id>', methods=['GET'])
@@ -158,11 +175,12 @@ def api_start_report(template_id):
         created_by_id=g.current_user.id,
         assigned_to_id=g.current_user.id,
         total_campos=total,
-        porcentaje_avance=0
+        porcentaje_avance=0,
+        clerk_org_id=getattr(g, 'org_id', None)  # Sellar el reporte con la org activa
     )
     db.session.add(new_report)
     db.session.commit()
-    log_activity('REPORTE_INICIADO_API', f'Inició nuevo levantamiento: {template.nombre}')
+    log_activity('REPORTE_INICIADO_API', f'Inicio nuevo levantamiento: {template.nombre}')
     
     return {"status": "success", "id": new_report.id}
 
