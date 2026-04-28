@@ -119,7 +119,7 @@ def api_ocr_extract():
 
         gemini_url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={api_key}"
+            f"gemini-1.5-flash:generateContent?key={api_key}"
         )
 
         payload = {
@@ -136,11 +136,15 @@ def api_ocr_extract():
 
         http_resp = http_requests.post(gemini_url, json=payload, timeout=30)
         
-        # Log completo para diagnostico
+        # Log completo para diagnostico (sin exponer la API key)
         print(f'OCR HTTP Status: {http_resp.status_code}')
+        if http_resp.status_code == 429:
+            return {"error": "Cuota de Gemini agotada (429). Espera 1 minuto e intenta de nuevo."}, 429
         if http_resp.status_code != 200:
-            print(f'OCR HTTP Error body: {http_resp.text[:500]}')
-            return {"error": f"Gemini API error {http_resp.status_code}: {http_resp.text[:300]}"}, 500
+            # Quitar la API key del mensaje de error antes de enviarlo al frontend
+            safe_error = http_resp.text[:300].replace(api_key, '***API_KEY***')
+            print(f'OCR HTTP Error body: {safe_error}')
+            return {"error": f"Gemini API error {http_resp.status_code}: {safe_error}"}, 500
         
         gemini_data = http_resp.json()
         print(f'OCR Gemini response keys: {list(gemini_data.keys())}')
