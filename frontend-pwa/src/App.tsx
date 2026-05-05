@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import { useAuth } from './contexts/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import KanbanBoard from './pages/KanbanBoard';
 import ReportCapture from './pages/ReportCapture';
@@ -10,36 +10,42 @@ import AdminLogs from './pages/AdminLogs';
 import Login from './pages/Login';
 import SecuritySettings from './pages/SecuritySettings';
 
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  
+  return <>{children}</>;
+};
+
+const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>;
+  if (user) return <Navigate to="/" replace />;
+  
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Ruta de Login (solo si estás deslogueado) */}
         <Route 
           path="/login" 
           element={
-            <>
-              <SignedIn>
-                <Navigate to="/" replace />
-              </SignedIn>
-              <SignedOut>
-                <Login />
-              </SignedOut>
-            </>
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
           } 
         />
 
-        {/* Rutas Protegidas (Requieren estar logueado, sino te manda al login) */}
         <Route 
           element={
-            <>
-              <SignedIn>
-                <DashboardLayout />
-              </SignedIn>
-              <SignedOut>
-                <RedirectToSignIn />
-              </SignedOut>
-            </>
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
           }
         >
           <Route path="/" element={<KanbanBoard />} />

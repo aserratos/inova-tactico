@@ -39,7 +39,12 @@ def create_app():
     executor.init_app(app)
 
     from controllers.templates import templates_bp
+    from controllers.auth import auth_bp
+    from controllers.pwa_api import pwa_api_bp
+    
     app.register_blueprint(templates_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(pwa_api_bp)
 
     return app
 

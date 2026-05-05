@@ -19,29 +19,26 @@ templates_bp = Blueprint('templates', __name__)
 @templates_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # 1. Show my templates AND public templates
-    templates = Template.query.filter(
-        (Template.uploader_id == g.current_user.id) | (Template.is_public == True)
-    ).order_by(Template.is_favorite.desc(), Template.fecha_subida.desc()).all()
+    # 1. Show my templates AND public templates (filtered by org)
+    templates = Template.query.filter(Template.org_id == g.org_id).order_by(Template.is_favorite.desc(), Template.fecha_subida.desc()).all()
     
     # 2. Get Users if Admin
     users = []
-    if g.current_user.is_admin:
-        users = User.query.all()
+    if g.current_user.is_admin or g.org_role == 'supervisor':
+        users = User.query.filter_by(org_id=g.org_id).all()
         
     # 3. Get Collaborative Reports (Drafts)
-    # If admin/supervisor: see all. If user: see assigned or created.
-    if g.current_user.is_admin or g.current_user.role == 'supervisor':
-        draft_reports = ReportInstance.query.order_by(ReportInstance.fecha_actualizacion.desc()).all()
+    if g.current_user.is_admin or g.org_role == 'supervisor':
+        draft_reports = ReportInstance.query.filter_by(org_id=g.org_id).order_by(ReportInstance.fecha_actualizacion.desc()).all()
     else:
-        draft_reports = ReportInstance.query.filter(
+        draft_reports = ReportInstance.query.filter_by(org_id=g.org_id).filter(
             (ReportInstance.assigned_to_id == g.current_user.id) | (ReportInstance.created_by_id == g.current_user.id)
         ).order_by(ReportInstance.fecha_actualizacion.desc()).all()
         
     # 4. Get Activity Logs for Bitacora
     logs = []
-    if g.current_user.is_admin:
-        logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(150).all()
+    if g.current_user.is_admin or g.org_role == 'supervisor':
+        logs = ActivityLog.query.filter_by(org_id=g.org_id).order_by(ActivityLog.timestamp.desc()).limit(150).all()
         
     return render_template('dashboard/index.html', 
                           templates=templates, 
@@ -222,10 +219,10 @@ def mark_notification_read(notif_id):
 @login_required
 def update_report_status(instance_id):
     report = db.session.get(ReportInstance, instance_id)
-    if not report:
+    if not report or report.org_id != g.org_id:
         return {"status": "error", "message": "Reporte no encontrado"}, 404
         
-    if report.assigned_to_id != g.current_user.id and not g.current_user.is_admin:
+    if report.assigned_to_id != g.current_user.id and not g.current_user.is_admin and g.org_role != 'supervisor':
         return {"status": "error", "message": "No tienes permiso para mover este reporte."}, 403
         
     new_status = request.json.get('status')
@@ -300,7 +297,8 @@ def api_upload_template():
             ruta_archivo_docx=object_key,
             uploader_id=g.current_user.id,
             is_public=True,
-            variables_json=vars_json
+            variables_json=vars_json,
+            org_id=g.org_id
         )
         db.session.add(new_template)
         db.session.commit()
@@ -358,11 +356,11 @@ def delete_template(template_id):
 @templates_bp.route('/api/admin/templates/delete/<int:template_id>', methods=['POST'])
 @login_required
 def api_delete_template(template_id):
-    if not g.current_user.is_admin:
+    if not g.current_user.is_admin and g.org_role != 'supervisor':
         return {"error": "Acceso denegado"}, 403
         
     template = db.session.get(Template, template_id)
-    if not template: return {"error": "No encontrado"}, 404
+    if not template or template.org_id != g.org_id: return {"error": "No encontrado"}, 404
         
     db.session.delete(template)
     db.session.commit()
@@ -395,9 +393,9 @@ from models import ActivityLog
 @templates_bp.route('/auth/api/admin/logs', methods=['GET'])
 @login_required
 def api_admin_logs():
-    if not getattr(g.current_user, 'is_admin', False):
+    if not getattr(g.current_user, 'is_admin', False) and g.org_role != 'supervisor':
         return {"error": "Unauthorized"}, 403
-    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(100).all()
+    logs = ActivityLog.query.filter_by(org_id=g.org_id).order_by(ActivityLog.timestamp.desc()).limit(100).all()
     return {"logs": [{
         "id": l.id,
         "action": l.action,

@@ -1,25 +1,14 @@
-import { UserProfile } from "@clerk/clerk-react";
-
 export default function SecuritySettings() {
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Seguridad y Perfil</h1>
-        <p className="mt-2 text-gray-600">
-          Administra tu contraseña, FaceID, huella dactilar y autenticación de dos pasos.
-        </p>
+        <h2 className="text-2xl font-bold text-gray-900">Configuración de Seguridad</h2>
+        <p className="text-gray-500 mt-1">Administra tu cuenta personal y contraseña (Próximamente)</p>
       </div>
-      
-      {/* Clerk's pre-built UserProfile component handles everything! */}
-      <UserProfile 
-        appearance={{
-          elements: {
-            rootBox: "w-full",
-            card: "w-full shadow-sm border border-gray-200 rounded-xl",
-            navbar: "hidden sm:flex", // Hide the left navbar on very small screens if desired, or let Clerk handle it
-          }
-        }}
-      />
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+        <p>La interfaz nativa de perfil de usuario estará disponible en la próxima actualización.</p>
+      </div>
     </div>
   );
 }

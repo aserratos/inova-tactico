@@ -1,19 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck } from 'lucide-react';
-import { UserButton, useUser, OrganizationSwitcher, useAuth } from '@clerk/clerk-react';
+import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { SyncEngine } from '../components/SyncEngine';
 
 export default function DashboardLayout() {
   const location = useLocation();
-  const { user } = useUser();
-  const { has, orgRole } = useAuth();
+  const { user, logout } = useAuth();
 
-  // isAdmin: true si el usuario es org:admin o supervisor en Clerk
-  const isAdmin = orgRole === 'org:admin' || orgRole === 'org:supervisor' ||
-                  has?.({ permission: 'org:sys_profile_manage' }) === true;
-
-  // canManageTemplates: tiene el permiso especifico configurado en Clerk
-  const canManageTemplates = isAdmin || has?.({ permission: 'manage_plantillas' }) === true;
+  const isAdmin = user?.role === 'admin' || user?.role === 'supervisor';
+  const canManageTemplates = isAdmin; // Simplified logic, can be expanded later
 
   return (
     <div className="min-h-screen bg-corporate-light flex flex-col md:flex-row">
@@ -46,7 +41,7 @@ export default function DashboardLayout() {
             <span className="font-medium">Ajustes</span>
           </Link>
           
-          {/* Seccion Admin: visible segun rol de Clerk */}
+          {/* Seccion Admin */}
           {isAdmin && (
             <>
               <div className="pt-4 pb-1">
@@ -80,15 +75,18 @@ export default function DashboardLayout() {
 
         </nav>
         <div className="p-4 border-t border-gray-200 flex flex-col space-y-3">
-          <div className="flex items-center space-x-2 w-full">
-            <OrganizationSwitcher hidePersonal={false} />
-          </div>
-          <div className="flex items-center space-x-3">
-            <UserButton afterSignOutUrl="/login" />
-            <div className="flex flex-col text-sm">
-              <span className="font-medium text-gray-900">{user?.fullName || 'Usuario'}</span>
-              <span className="text-gray-500 text-xs truncate max-w-[150px]">{user?.primaryEmailAddress?.emailAddress}</span>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex flex-col text-sm w-[150px]">
+              <span className="font-medium text-gray-900 truncate">{user?.nombre_completo || 'Usuario'}</span>
+              <span className="text-gray-500 text-xs truncate">{user?.email}</span>
             </div>
+            <button 
+              onClick={logout} 
+              className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </aside>
@@ -97,7 +95,12 @@ export default function DashboardLayout() {
       <main className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         <header className="md:hidden bg-white shadow-sm px-4 py-4 sticky top-0 z-10 flex items-center justify-between">
           <h1 className="text-lg font-bold text-corporate-dark">Inova Admin</h1>
-          <UserButton afterSignOutUrl="/login" />
+          <button 
+            onClick={logout} 
+            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+          >
+            <LogOut size={20} />
+          </button>
         </header>
         <div className="flex-1 p-4 md:p-8">
           <Outlet />
