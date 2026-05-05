@@ -243,7 +243,35 @@ export default function TeamManagement() {
 
               {user?.role === 'admin' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Organización</label>
+                  <div className="flex justify-between items-end mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Organización (Inquilino)</label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newOrg = prompt('Nombre de la nueva organización:');
+                        if (newOrg) {
+                          try {
+                            const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/organizations`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ nombre: newOrg })
+                            });
+                            const data = await res.json();
+                            if (data.status === 'success') {
+                              alert('Organización creada exitosamente');
+                              // Re-fetch to update the dropdown
+                              fetchUsersAndOrgs();
+                            }
+                          } catch (e) {
+                            alert('Error creando organización');
+                          }
+                        }
+                      }}
+                      className="text-xs text-corporate-blue hover:underline"
+                    >
+                      + Crear nueva
+                    </button>
+                  </div>
                   <select
                     value={formData.org_id}
                     onChange={(e) => setFormData({...formData, org_id: e.target.value})}
