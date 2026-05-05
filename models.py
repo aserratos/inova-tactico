@@ -8,6 +8,7 @@ class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    erp_api_key = db.Column(db.String(255), unique=True, nullable=True)
 
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +17,8 @@ class Customer(db.Model):
     rfc = db.Column(db.String(20), nullable=True)
     contacto_principal = db.Column(db.String(150), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    external_erp_id = db.Column(db.String(100), nullable=True)
+    erp_source = db.Column(db.String(50), nullable=True)
     
     org = db.relationship('Organization', backref=db.backref('customers', lazy=True))
 
@@ -64,6 +67,7 @@ class ReportInstance(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
     template_id = db.Column(db.Integer, db.ForeignKey('template.id'), nullable=False)
     nombre = db.Column(db.String(150), nullable=False)
+    external_erp_id = db.Column(db.String(100), nullable=True)
     data_json = db.Column(db.Text, default='{}')
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'))

@@ -56,8 +56,10 @@ with app.app_context():
     db.create_all()
     # Ejecutamos la migracion automaticamente
     try:
-        from migrate_customer import migrate
-        migrate()
+        from migrate_customer import migrate as migrate_cust
+        migrate_cust()
+        from migrate_erp import migrate as migrate_erp_func
+        migrate_erp_func()
     except Exception as e:
         print("Error en migracion automatica:", e)
 
