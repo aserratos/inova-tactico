@@ -102,12 +102,13 @@ export default function Integrations() {
         method: 'POST',
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Falló la prueba');
+      if (!res.ok) throw new Error(data.error || 'Fallo la prueba');
       setConnStatus('connected');
-      setConnMsg(`✓ Conectado exitosamente como: ${data.uid ? 'UID ' + data.uid : 'OK'}`);
+      setConnMsg(`Conectado correctamente. Odoo ${data.odoo_version || ''} | UID: ${data.uid}`);
     } catch (error: any) {
       setConnStatus('failed');
-      setConnMsg(error.message || 'No se pudo conectar.');
+      // Mostrar el mensaje de error exacto del backend
+      setConnMsg(error.message || 'No se pudo conectar. Revisa las credenciales.');
     }
   };
 

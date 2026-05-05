@@ -1,7 +1,24 @@
 import xmlrpc.client
+import socket
 from flask import Blueprint, jsonify, request, g
 from models import db, Organization, Customer
 from controllers.auth_middleware import require_auth
+
+ODOO_TIMEOUT = 15  # segundos
+
+def _odoo_proxy(url, path):
+    """Crea un ServerProxy con timeout configurado."""
+    transport = xmlrpc.client.SafeTransport()
+    transport._connection = (None, None)
+    full_url = '{}/{}'.format(url.rstrip('/'), path)
+    # Usar context para SSL y timeout manual via socket
+    import http.client
+    class TimeoutSafeTransport(xmlrpc.client.SafeTransport):
+        def make_connection(self, host):
+            conn = xmlrpc.client.SafeTransport.make_connection(self, host)
+            conn.timeout = ODOO_TIMEOUT
+            return conn
+    return xmlrpc.client.ServerProxy(full_url, transport=TimeoutSafeTransport())
 
 integrations_bp = Blueprint('integrations', __name__)
 
@@ -52,13 +69,32 @@ def test_odoo_connection():
         return jsonify({"error": "Faltan credenciales. Guarda la configuración primero."}), 400
 
     try:
-        common = xmlrpc.client.ServerProxy('{}/xmlrpc/2/common'.format(org.erp_url.rstrip('/')))
-        uid = common.authenticate(org.erp_db, org.erp_username, org.erp_api_key, {})
+        common = _odoo_proxy(org.erp_url, 'xmlrpc/2/common')
+        # Primero verificar que el servidor responde
+        try:
+            version = common.version()
+            odoo_version = version.get('server_version', 'unknown')
+        except socket.timeout:
+            return jsonify({"error": "Timeout: Odoo tardó demasiado en responder (>15s). Verifica la URL."}), 504
+        except Exception as ve:
+            return jsonify({"error": f"El servidor Odoo no responde: {str(ve)}"}), 502
+
+        # Autenticar
+        try:
+            uid = common.authenticate(org.erp_db, org.erp_username, org.erp_api_key, {})
+        except socket.timeout:
+            return jsonify({"error": "Timeout durante autenticación."}), 504
+        except Exception as ae:
+            return jsonify({"error": f"Error en autenticación: {str(ae)}"}), 502
+
         if not uid:
-            return jsonify({"error": "Autenticación fallida. Verifica usuario y API Key."}), 401
-        return jsonify({"status": "connected", "uid": uid})
+            return jsonify({"error": "Credenciales incorrectas. Verifica el email de usuario y la API Key."}), 401
+
+        return jsonify({"status": "connected", "uid": uid, "odoo_version": odoo_version})
     except Exception as e:
-        return jsonify({"error": f"No se pudo conectar: {str(e)}"}), 500
+        import traceback
+        print('Odoo Test Error:', traceback.format_exc())
+        return jsonify({"error": f"Error inesperado: {str(e)}"}), 500
 
 @integrations_bp.route('/api/integrations/odoo/sync', methods=['POST'])
 @require_auth
