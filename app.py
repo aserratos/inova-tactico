@@ -54,6 +54,12 @@ def create_app():
 app = create_app()
 with app.app_context():
     db.create_all()
+    # Ejecutamos la migracion automaticamente
+    try:
+        from migrate_customer import migrate
+        migrate()
+    except Exception as e:
+        print("Error en migracion automatica:", e)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8001, debug=True, use_reloader=False)
