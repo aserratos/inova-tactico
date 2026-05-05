@@ -22,7 +22,25 @@ def migrate():
     try:
         print("Añadiendo erp_api_key a organization...")
         try:
-            cursor.execute("ALTER TABLE organization ADD COLUMN erp_api_key VARCHAR(255) UNIQUE")
+            cursor.execute("ALTER TABLE organization ADD COLUMN erp_api_key VARCHAR(255)")
+        except Exception as e:
+            print(f"La columna ya existe o error: {e}")
+
+        print("Añadiendo erp_url a organization...")
+        try:
+            cursor.execute("ALTER TABLE organization ADD COLUMN erp_url VARCHAR(255)")
+        except Exception as e:
+            print(f"La columna ya existe o error: {e}")
+
+        print("Añadiendo erp_db a organization...")
+        try:
+            cursor.execute("ALTER TABLE organization ADD COLUMN erp_db VARCHAR(100)")
+        except Exception as e:
+            print(f"La columna ya existe o error: {e}")
+
+        print("Añadiendo erp_username a organization...")
+        try:
+            cursor.execute("ALTER TABLE organization ADD COLUMN erp_username VARCHAR(150)")
         except Exception as e:
             print(f"La columna ya existe o error: {e}")
             

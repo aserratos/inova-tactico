@@ -70,6 +70,13 @@ export default function DashboardLayout() {
                 <span className="font-medium text-sm">Clientes (Empresas)</span>
               </Link>
               <Link 
+                to="/admin/integrations" 
+                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/integrations') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                <Activity size={18} />
+                <span className="font-medium text-sm">Integraciones (Odoo)</span>
+              </Link>
+              <Link 
                 to="/team" 
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/team') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
               >

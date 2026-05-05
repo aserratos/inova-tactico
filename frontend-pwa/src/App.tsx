@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import SecuritySettings from './pages/SecuritySettings';
 import ClientPortal from './pages/ClientPortal';
 import CustomerManagement from './pages/CustomerManagement';
+import Integrations from './pages/Integrations';
 
 const HomeRouter = () => {
   const { user } = useAuth();
@@ -66,6 +67,7 @@ function App() {
           <Route path="/admin/templates" element={<AdminTemplates />} />
           <Route path="/admin/logs" element={<AdminLogs />} />
           <Route path="/admin/customers" element={<CustomerManagement />} />
+          <Route path="/admin/integrations" element={<Integrations />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

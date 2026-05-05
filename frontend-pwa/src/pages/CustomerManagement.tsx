@@ -64,8 +64,27 @@ export default function CustomerManagement() {
     }
   };
 
-  const handleOdooSync = () => {
-    alert("Pronto conectaremos Inova Táctico con Odoo para sincronizar empresas automáticamente.");
+  const handleOdooSync = async () => {
+    if (!confirm('¿Estás seguro de sincronizar los clientes desde Odoo? Esto podría tardar unos segundos.')) return;
+    try {
+      setLoading(true);
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/integrations/odoo/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({}) // Backend picks up g.org_id
+      });
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      alert(data.message || 'Sincronización completada exitosamente.');
+      fetchCustomers();
+    } catch (error: any) {
+      alert(error.message || 'Error al conectar con Odoo. Verifica la configuración de tu Organización.');
+      setLoading(false);
+    }
   };
 
   const filteredCustomers = customers.filter(c => 

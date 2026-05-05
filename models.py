@@ -8,7 +8,10 @@ class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    erp_api_key = db.Column(db.String(255), unique=True, nullable=True)
+    erp_api_key = db.Column(db.String(255), unique=False, nullable=True)
+    erp_url = db.Column(db.String(255), nullable=True)
+    erp_db = db.Column(db.String(100), nullable=True)
+    erp_username = db.Column(db.String(150), nullable=True)
 
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
