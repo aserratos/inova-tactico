@@ -9,6 +9,15 @@ import AdminTemplates from './pages/AdminTemplates';
 import AdminLogs from './pages/AdminLogs';
 import Login from './pages/Login';
 import SecuritySettings from './pages/SecuritySettings';
+import ClientPortal from './pages/ClientPortal';
+
+const HomeRouter = () => {
+  const { user } = useAuth();
+  if (user?.role === 'cliente') {
+    return <ClientPortal />;
+  }
+  return <KanbanBoard />;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -48,7 +57,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<KanbanBoard />} />
+          <Route path="/" element={<HomeRouter />} />
           <Route path="/capture" element={<TemplateSelector />} />
           <Route path="/capture/:id" element={<ReportCapture />} />
           <Route path="/settings" element={<SecuritySettings />} />

@@ -19,7 +19,18 @@ def get_templates():
 def get_reports():
     if g.org_role in ['admin', 'supervisor']:
         reports = ReportInstance.query.filter_by(org_id=g.org_id).all()
+    elif g.org_role == 'cliente':
+        # Clients only see their own finished reports
+        if not g.current_user.customer_id:
+            reports = []
+        else:
+            reports = ReportInstance.query.filter_by(
+                org_id=g.org_id, 
+                customer_id=g.current_user.customer_id,
+                status='terminado'
+            ).all()
     else:
+        # Tecnicos see their assigned or created reports
         reports = ReportInstance.query.filter_by(org_id=g.org_id).filter(
             (ReportInstance.assigned_to_id == g.current_user.id) | 
             (ReportInstance.created_by_id == g.current_user.id)
@@ -34,7 +45,9 @@ def get_reports():
             "template_name": r.template.nombre if r.template else "Sin plantilla",
             "assigned_to_id": r.assigned_to_id,
             "created_by_id": r.created_by_id,
-            "comentarios": r.comentarios
+            "comentarios": r.comentarios,
+            "archivo_compilado_path": r.archivo_compilado_path if r.status == 'terminado' else None,
+            "fecha_actualizacion": r.fecha_actualizacion.strftime('%d %b %Y, %H:%M') if r.fecha_actualizacion else None
         } for r in reports]
     })
 

@@ -24,22 +24,28 @@ export default function DashboardLayout() {
             className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <LayoutDashboard size={20} />
-            <span className="font-medium">Tablero</span>
+            <span className="font-medium">{user?.role === 'cliente' ? 'Portal' : 'Tablero'}</span>
           </Link>
-          <Link 
-            to="/capture" 
-            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/capture' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Camera size={20} />
-            <span className="font-medium">Nueva Captura</span>
-          </Link>
-          <Link 
-            to="/settings" 
-            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/settings' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <ShieldCheck size={20} />
-            <span className="font-medium">Ajustes</span>
-          </Link>
+          
+          {user?.role !== 'cliente' && (
+            <Link 
+              to="/capture" 
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/capture' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Camera size={20} />
+              <span className="font-medium">Nueva Captura</span>
+            </Link>
+          )}
+
+          {user?.role !== 'cliente' && (
+            <Link 
+              to="/settings" 
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === '/settings' ? 'bg-corporate-blue text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <ShieldCheck size={20} />
+              <span className="font-medium">Ajustes</span>
+            </Link>
+          )}
           
           {/* Seccion Admin */}
           {isAdmin && (
@@ -110,16 +116,20 @@ export default function DashboardLayout() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 pb-safe z-10">
           <Link to="/" className={`flex flex-col items-center p-2 ${location.pathname === '/' ? 'text-corporate-blue' : 'text-gray-500'}`}>
             <LayoutDashboard size={24} />
-            <span className="text-xs mt-1 font-medium">Tablero</span>
+            <span className="text-xs mt-1 font-medium">{user?.role === 'cliente' ? 'Portal' : 'Tablero'}</span>
           </Link>
-          <Link to="/capture" className={`flex flex-col items-center p-2 ${location.pathname === '/capture' ? 'text-corporate-blue' : 'text-gray-500'}`}>
-            <Camera size={24} />
-            <span className="text-xs mt-1 font-medium">Captura</span>
-          </Link>
-          <Link to="/settings" className={`flex flex-col items-center p-2 ${location.pathname === '/settings' ? 'text-corporate-blue' : 'text-gray-500'}`}>
-            <ShieldCheck size={24} />
-            <span className="text-xs mt-1 font-medium">Ajustes</span>
-          </Link>
+          {user?.role !== 'cliente' && (
+            <Link to="/capture" className={`flex flex-col items-center p-2 ${location.pathname === '/capture' ? 'text-corporate-blue' : 'text-gray-500'}`}>
+              <Camera size={24} />
+              <span className="text-xs mt-1 font-medium">Captura</span>
+            </Link>
+          )}
+          {user?.role !== 'cliente' && (
+            <Link to="/settings" className={`flex flex-col items-center p-2 ${location.pathname === '/settings' ? 'text-corporate-blue' : 'text-gray-500'}`}>
+              <ShieldCheck size={24} />
+              <span className="text-xs mt-1 font-medium">Ajustes</span>
+            </Link>
+          )}
           {isAdmin && (
             <Link to="/admin/logs" className={`flex flex-col items-center p-2 ${location.pathname.startsWith('/admin') ? 'text-purple-600' : 'text-gray-500'}`}>
               <Activity size={24} />
