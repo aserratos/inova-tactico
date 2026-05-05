@@ -38,6 +38,28 @@ def manage_odoo_config():
         db.session.commit()
         return jsonify({"status": "success"})
 
+@integrations_bp.route('/api/admin/integrations/odoo/test', methods=['POST'])
+@require_auth
+def test_odoo_connection():
+    if not getattr(g.current_user, 'is_admin', False) and g.org_role != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    org = Organization.query.get(g.org_id)
+    if not org:
+        return jsonify({"error": "Organización no encontrada"}), 404
+
+    if not org.erp_url or not org.erp_db or not org.erp_username or not org.erp_api_key:
+        return jsonify({"error": "Faltan credenciales. Guarda la configuración primero."}), 400
+
+    try:
+        common = xmlrpc.client.ServerProxy('{}/xmlrpc/2/common'.format(org.erp_url.rstrip('/')))
+        uid = common.authenticate(org.erp_db, org.erp_username, org.erp_api_key, {})
+        if not uid:
+            return jsonify({"error": "Autenticación fallida. Verifica usuario y API Key."}), 401
+        return jsonify({"status": "connected", "uid": uid})
+    except Exception as e:
+        return jsonify({"error": f"No se pudo conectar: {str(e)}"}), 500
+
 @integrations_bp.route('/api/integrations/odoo/sync', methods=['POST'])
 @require_auth
 def sync_odoo_customers():
