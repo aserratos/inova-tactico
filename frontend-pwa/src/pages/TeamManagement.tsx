@@ -28,11 +28,13 @@ export default function TeamManagement() {
 
   const fetchUsersAndOrgs = async () => {
     try {
-      const data = await apiFetch('/api/admin/users');
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/users`);
+      const data = await res.json();
       setUsers(data.users || []);
       
       if (user?.role === 'admin') {
-        const orgsData = await apiFetch('/api/admin/organizations');
+        const orgsRes = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/organizations`);
+        const orgsData = await orgsRes.json();
         setOrganizations(orgsData.organizations || []);
         if (orgsData.organizations?.length > 0) {
           setFormData(prev => ({...prev, org_id: orgsData.organizations[0].id.toString()}));
@@ -51,7 +53,7 @@ export default function TeamManagement() {
 
   const handleToggleActive = async (userId: number) => {
     try {
-      await apiFetch(`/api/admin/users/${userId}/toggle`, { method: 'POST' });
+      await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/users/${userId}/toggle`, { method: 'POST' });
       fetchUsersAndOrgs();
     } catch (error) {
       alert('Error cambiando estado del usuario');
@@ -61,13 +63,20 @@ export default function TeamManagement() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiFetch('/api/admin/users', {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/users`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           ...formData,
           org_id: formData.org_id ? parseInt(formData.org_id) : undefined
         })
       });
+      const data = await res.json();
+      if (data.error) {
+          throw new Error(data.error);
+      }
       setShowModal(false);
       setFormData({ email: '', password: '', nombre_completo: '', role: 'tecnico', org_id: organizations[0]?.id.toString() || '' });
       fetchUsersAndOrgs();
