@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, Camera, Users, FileText, Activity, ShieldCheck, LogOut, Building2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SyncEngine } from '../components/SyncEngine';
 
@@ -62,6 +62,13 @@ export default function DashboardLayout() {
                   <span className="font-medium text-sm">Plantillas</span>
                 </Link>
               )}
+              <Link 
+                to="/admin/customers" 
+                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/admin/customers') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                <Building2 size={18} />
+                <span className="font-medium text-sm">Clientes (Empresas)</span>
+              </Link>
               <Link 
                 to="/team" 
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${location.pathname.startsWith('/team') ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'}`}

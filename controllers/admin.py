@@ -56,10 +56,66 @@ def get_users():
             "nombre_completo": u.nombre_completo,
             "role": u.role,
             "org_id": u.org_id,
+            "customer_id": u.customer_id,
             "is_active": u.is_active,
-            "org_nombre": u.org.nombre if u.org else "N/A"
+            "org_nombre": u.org.nombre if u.org else "N/A",
+            "customer_nombre": u.customer.nombre_empresa if u.customer else "N/A"
         } for u in users]
     })
+
+@admin_bp.route('/api/admin/customers', methods=['GET'])
+@require_auth
+def get_customers():
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
+    if not is_super_admin and g.org_role not in ['admin', 'supervisor']:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    if is_super_admin:
+        customers = db.session.query(db.Model._decl_class_registry.get('Customer', None)).all() # Safe fallback if imported
+        from models import Customer
+        customers = Customer.query.all()
+    else:
+        from models import Customer
+        customers = Customer.query.filter_by(org_id=g.org_id).all()
+        
+    return jsonify({
+        "customers": [{
+            "id": c.id,
+            "nombre_empresa": c.nombre_empresa,
+            "contacto_principal": c.contacto_principal,
+            "rfc": c.rfc,
+            "external_erp_id": c.external_erp_id,
+            "erp_source": c.erp_source,
+            "created_at": c.created_at.strftime('%Y-%m-%d') if c.created_at else None
+        } for c in customers]
+    })
+
+@admin_bp.route('/api/admin/customers', methods=['POST'])
+@require_auth
+def create_customer():
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
+    if not is_super_admin and g.org_role not in ['admin', 'supervisor']:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = request.json
+    nombre_empresa = data.get('nombre_empresa')
+    
+    if not nombre_empresa:
+        return jsonify({"error": "El nombre de la empresa es requerido"}), 400
+        
+    from models import Customer
+    org_id = data.get('org_id') if is_super_admin else g.org_id
+    
+    customer = Customer(
+        org_id=org_id,
+        nombre_empresa=nombre_empresa,
+        contacto_principal=data.get('contacto_principal'),
+        rfc=data.get('rfc')
+    )
+    db.session.add(customer)
+    db.session.commit()
+    
+    return jsonify({"status": "success", "id": customer.id})
 
 @admin_bp.route('/api/admin/users', methods=['POST'])
 @require_auth
@@ -73,6 +129,7 @@ def create_user():
     password = data.get('password')
     role = data.get('role', 'tecnico')
     nombre_completo = data.get('nombre_completo', '')
+    customer_id = data.get('customer_id')
     
     org_id = data.get('org_id') if is_super_admin else g.org_id
     if not org_id:
@@ -86,6 +143,7 @@ def create_user():
         role=role,
         nombre_completo=nombre_completo,
         org_id=org_id,
+        customer_id=customer_id if role == 'cliente' else None,
         is_active=True
     )
     new_user.set_password(password)

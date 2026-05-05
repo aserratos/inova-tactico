@@ -9,6 +9,7 @@ interface UserData {
   nombre_completo: string;
   role: string;
   org_nombre: string;
+  customer_nombre?: string;
   is_active: boolean;
 }
 
@@ -23,8 +24,10 @@ export default function TeamManagement() {
     password: '',
     nombre_completo: '',
     role: 'tecnico',
-    org_id: ''
+    org_id: '',
+    customer_id: ''
   });
+  const [customers, setCustomers] = useState<{id: number, nombre_empresa: string}[]>([]);
 
   const fetchUsersAndOrgs = async () => {
     try {
@@ -40,6 +43,10 @@ export default function TeamManagement() {
           setFormData(prev => ({...prev, org_id: orgsData.organizations[0].id.toString()}));
         }
       }
+      
+      const custRes = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/admin/customers`);
+      const custData = await custRes.json();
+      setCustomers(custData.customers || []);
     } catch (error) {
       console.error('Failed to fetch data', error);
     } finally {
@@ -78,7 +85,7 @@ export default function TeamManagement() {
           throw new Error(data.error);
       }
       setShowModal(false);
-      setFormData({ email: '', password: '', nombre_completo: '', role: 'tecnico', org_id: organizations[0]?.id.toString() || '' });
+      setFormData({ email: '', password: '', nombre_completo: '', role: 'tecnico', org_id: organizations[0]?.id.toString() || '', customer_id: '' });
       fetchUsersAndOrgs();
     } catch (error: any) {
       alert(error.message || 'Error al crear usuario');
@@ -132,7 +139,12 @@ export default function TeamManagement() {
                       {u.role}
                     </span>
                   </td>
-                  <td className="p-4 text-sm text-gray-600">{u.org_nombre}</td>
+                  <td className="p-4 text-sm text-gray-600">
+                    <div>{u.org_nombre}</div>
+                    {u.role === 'cliente' && u.customer_nombre && (
+                      <div className="text-xs text-purple-600 mt-0.5">{u.customer_nombre}</div>
+                    )}
+                  </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${u.is_active ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
                       {u.is_active ? 'Activo' : 'Inactivo'}
@@ -211,6 +223,24 @@ export default function TeamManagement() {
                   {user?.role === 'admin' && <option value="admin">Administrador</option>}
                 </select>
               </div>
+              
+              {formData.role === 'cliente' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empresa del Cliente</label>
+                  <select
+                    required
+                    value={formData.customer_id}
+                    onChange={(e) => setFormData({...formData, customer_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-corporate-blue focus:border-corporate-blue outline-none"
+                  >
+                    <option value="">Selecciona una empresa...</option>
+                    {customers.map(cust => (
+                      <option key={cust.id} value={cust.id}>{cust.nombre_empresa}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {user?.role === 'admin' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Organización</label>
