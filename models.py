@@ -9,15 +9,26 @@ class Organization(db.Model):
     nombre = db.Column(db.String(150), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+class Customer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    nombre_empresa = db.Column(db.String(150), nullable=False)
+    rfc = db.Column(db.String(20), nullable=True)
+    contacto_principal = db.Column(db.String(150), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    org = db.relationship('Organization', backref=db.backref('customers', lazy=True))
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False, nullable=False) # Admin del sistema (super admin)
-    role = db.Column(db.String(50), default='tecnico') # tecnico, supervisor, admin (de la organización)
+    role = db.Column(db.String(50), default='tecnico') # tecnico, supervisor, admin (de la organización), cliente
     
     # Identidad Táctica
     nombre_completo = db.Column(db.String(200), nullable=True)
@@ -25,6 +36,7 @@ class User(db.Model):
     telefono = db.Column(db.String(20), nullable=True)
 
     org = db.relationship('Organization', backref=db.backref('users', lazy=True))
+    customer = db.relationship('Customer', backref=db.backref('users', lazy=True))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -49,6 +61,7 @@ class Template(db.Model):
 class ReportInstance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
     template_id = db.Column(db.Integer, db.ForeignKey('template.id'), nullable=False)
     nombre = db.Column(db.String(150), nullable=False)
     data_json = db.Column(db.Text, default='{}')
@@ -67,6 +80,7 @@ class ReportInstance(db.Model):
     creator = db.relationship('User', foreign_keys=[created_by_id], backref=db.backref('created_reports', lazy=True))
     assigned_to = db.relationship('User', foreign_keys=[assigned_to_id], backref=db.backref('assigned_reports', lazy=True))
     org = db.relationship('Organization', backref=db.backref('reports', lazy=True))
+    customer = db.relationship('Customer', backref=db.backref('reports', lazy=True))
 
 class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
