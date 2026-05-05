@@ -104,7 +104,8 @@ def create_customer():
         return jsonify({"error": "El nombre de la empresa es requerido"}), 400
         
     from models import Customer
-    org_id = data.get('org_id') if is_super_admin else g.org_id
+    # Fallback a g.org_id si is_super_admin es verdadero pero no se envio org_id
+    org_id = data.get('org_id') or g.org_id if is_super_admin else g.org_id
     
     customer = Customer(
         org_id=org_id,
