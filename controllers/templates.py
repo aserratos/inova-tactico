@@ -264,8 +264,9 @@ def update_report_status(instance_id):
 @templates_bp.route('/api/admin/templates/upload', methods=['POST'])
 @login_required
 def api_upload_template():
-    if not g.current_user.is_admin:
-        return {"error": "Acceso denegado"}, 403
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
+    if not is_super_admin and g.org_role not in ('admin', 'supervisor'):
+        return {"error": "Acceso denegado. Solo administradores pueden subir plantillas."}, 403
         
     if 'document' not in request.files:
         return {"error": "No se seleccionó ningún archivo"}, 400
@@ -279,7 +280,9 @@ def api_upload_template():
         filename = secure_filename(file.filename)
         from services.storage_service import upload_file_to_r2
         object_key = f"templates/{int(datetime.now().timestamp())}_{filename}"
-        upload_file_to_r2(file, object_key)
+        ok = upload_file_to_r2(file, object_key)
+        if not ok:
+            return {"error": "Error al subir el archivo a almacenamiento. Verifica las credenciales de R2."}, 500
         
         nombre = request.form.get('nombre')
         if not nombre: nombre = filename.rsplit('.', 1)[0]
@@ -289,7 +292,8 @@ def api_upload_template():
             doc = SmartDocxTemplate(file)
             vars = list(doc.get_undeclared_template_variables())
             vars_json = json.dumps(vars)
-        except:
+        except Exception as ve:
+            print(f'Error extrayendo variables de plantilla: {ve}')
             vars_json = "[]"
 
         new_template = Template(
@@ -302,11 +306,11 @@ def api_upload_template():
         )
         db.session.add(new_template)
         db.session.commit()
-        log_activity('PLANTILLA_CREADA_API', f'Subió nuevo formato matriz: {nombre}')
+        log_activity('PLANTILLA_CREADA_API', f'Subíó nuevo formato matriz: {nombre}')
         
-        return {"status": "success", "id": new_template.id}
+        return {"status": "success", "id": new_template.id, "nombre": nombre, "variables": json.loads(vars_json)}
     else:
-        return {"error": "Formato inválido. Solo .docx"}, 400
+        return {"error": "Formato inválido. Solo se permiten archivos .docx"}, 400
 
 @templates_bp.route('/favorite/<int:template_id>', methods=['POST'])
 @login_required

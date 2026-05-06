@@ -11,7 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 URL = "https://inovasecurite.odoo.com"
 DB = "inovasecurite"
 USERNAME = "aserratos84@gmail.com"
-API_KEY = "fca03bfd82d9c5a4a620f7d99d20edf1a1926a59"
+API_KEY = "fbb64f0e1c24659f35af48c1c3343e126401747e"
 
 print("=" * 60)
 print("DIAGNOSTICO DE CONEXION ODOO")

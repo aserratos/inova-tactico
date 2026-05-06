@@ -43,15 +43,65 @@ def login():
 @auth_bp.route('/api/auth/me', methods=['GET'])
 @require_auth
 def me():
+    u = g.current_user
     return jsonify({
         'user': {
-            'id': g.current_user.id,
-            'email': g.current_user.email,
-            'nombre_completo': g.current_user.nombre_completo,
-            'role': g.current_user.role,
-            'org_id': g.current_user.org_id
+            'id': u.id,
+            'email': u.email,
+            'nombre_completo': u.nombre_completo,
+            'puesto': u.puesto,
+            'telefono': u.telefono,
+            'role': u.role,
+            'org_id': u.org_id
         }
     })
+
+@auth_bp.route('/api/auth/profile', methods=['POST'])
+@require_auth
+def update_profile():
+    data = request.json or {}
+    u = g.current_user
+    if 'nombre_completo' in data:
+        u.nombre_completo = data['nombre_completo'].strip()
+    if 'puesto' in data:
+        u.puesto = data['puesto'].strip()
+    if 'telefono' in data:
+        u.telefono = data['telefono'].strip()
+    db.session.commit()
+    return jsonify({
+        'status': 'success',
+        'user': {
+            'id': u.id,
+            'email': u.email,
+            'nombre_completo': u.nombre_completo,
+            'puesto': u.puesto,
+            'telefono': u.telefono,
+            'role': u.role,
+            'org_id': u.org_id
+        }
+    })
+
+@auth_bp.route('/api/auth/change-password', methods=['POST'])
+@require_auth
+def change_password():
+    data = request.json or {}
+    current_pwd = data.get('current_password', '')
+    new_pwd = data.get('new_password', '')
+
+    if not current_pwd or not new_pwd:
+        return jsonify({'error': 'Se requieren la contraseña actual y la nueva.'}), 400
+
+    u = g.current_user
+    if not u.check_password(current_pwd):
+        return jsonify({'error': 'La contraseña actual es incorrecta.'}), 401
+
+    if len(new_pwd) < 8:
+        return jsonify({'error': 'La nueva contraseña debe tener al menos 8 caracteres.'}), 400
+
+    u.set_password(new_pwd)
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
 
 @auth_bp.route('/api/auth/register', methods=['POST'])
 def register():

@@ -13,6 +13,7 @@ export default function Integrations() {
   const [saveMsg, setSaveMsg] = useState('');
   const [connStatus, setConnStatus] = useState<ConnStatus>('unknown');
   const [connMsg, setConnMsg] = useState('');
+  const [connDetail, setConnDetail] = useState<string | null>(null); // detalles técnicos del error
   const [hasExistingKey, setHasExistingKey] = useState(false);
   const [formData, setFormData] = useState({
     erp_url: '',
@@ -74,18 +75,33 @@ export default function Integrations() {
         return;
       }
 
-      const res = await apiFetch(`${API}/api/admin/integrations/odoo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Error al guardar');
+      let res: Response;
+      try {
+        res = await apiFetch(`${API}/api/admin/integrations/odoo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (netErr: any) {
+        throw new Error(`Error de red: No se pudo conectar al servidor (${netErr.message}). Verifica que el backend esté activo en: ${API}`);
+      }
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`El servidor respondió con HTTP ${res.status} pero la respuesta no es JSON válido.`);
+      }
+
+      if (!res.ok || data.error) {
+        throw new Error(`[HTTP ${res.status}] ${data.error || data.message || 'Error al guardar'}`);
+      }
       
       setSaveStatus('success');
       setSaveMsg('Configuración guardada exitosamente.');
       setHasExistingKey(true);
       setConnStatus('unknown');
+      setConnDetail(null);
       // Auto-ocultar mensaje después de 4s
       setTimeout(() => setSaveStatus('idle'), 4000);
     } catch (error: any) {
@@ -97,18 +113,46 @@ export default function Integrations() {
   const handleTestConnection = async () => {
     setConnStatus('testing');
     setConnMsg('Probando conexión con Odoo...');
+    setConnDetail(null);
     try {
-      const res = await apiFetch(`${API}/api/admin/integrations/odoo/test`, {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Fallo la prueba');
+      let res: Response;
+      try {
+        res = await apiFetch(`${API}/api/admin/integrations/odoo/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (netErr: any) {
+        setConnStatus('failed');
+        setConnMsg('Error de red: No se pudo alcanzar el servidor backend.');
+        setConnDetail(`URL del backend: ${API}\nError: ${netErr.message}\n\nVerifica que el servidor esté activo y accesible.`);
+        return;
+      }
+
+      let data: any = {};
+      const rawText = await res.text();
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        setConnStatus('failed');
+        setConnMsg(`El servidor respondió con HTTP ${res.status} pero con contenido inesperado.`);
+        setConnDetail(`Respuesta del servidor:\n${rawText.slice(0, 500)}`);
+        return;
+      }
+
+      if (!res.ok) {
+        setConnStatus('failed');
+        setConnMsg(data.error || `Error HTTP ${res.status}`);
+        setConnDetail(`Código HTTP: ${res.status}\nURL probada: ${API}/api/admin/integrations/odoo/test\nRespuesta del servidor: ${JSON.stringify(data, null, 2)}`);
+        return;
+      }
+
       setConnStatus('connected');
-      setConnMsg(`Conectado correctamente. Odoo ${data.odoo_version || ''} | UID: ${data.uid}`);
+      setConnMsg(`✓ Conectado correctamente. Odoo ${data.odoo_version || ''} | UID: ${data.uid}`);
+      setConnDetail(null);
     } catch (error: any) {
       setConnStatus('failed');
-      // Mostrar el mensaje de error exacto del backend
       setConnMsg(error.message || 'No se pudo conectar. Revisa las credenciales.');
+      setConnDetail(`Error inesperado: ${error.message}`);
     }
   };
 
@@ -167,7 +211,10 @@ export default function Integrations() {
         {/* Connection test message */}
         {connMsg && (
           <div className={`mx-6 mt-4 p-3 rounded-xl text-sm ${connStatus === 'connected' ? 'bg-green-50 text-green-700' : connStatus === 'failed' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
-            {connMsg}
+            <p className="font-medium">{connMsg}</p>
+            {connDetail && (
+              <pre className="mt-2 text-xs whitespace-pre-wrap break-all font-mono opacity-80 bg-black/5 rounded p-2">{connDetail}</pre>
+            )}
           </div>
         )}
 

@@ -26,11 +26,14 @@ integrations_bp = Blueprint('integrations', __name__)
 @require_auth
 def manage_odoo_config():
     if not getattr(g.current_user, 'is_admin', False) and g.org_role != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
+        return jsonify({"error": "Unauthorized", "detail": f"org_role={g.org_role}, is_admin={g.current_user.is_admin}"}), 403
+
+    if not g.org_id:
+        return jsonify({"error": "Tu usuario no tiene una organización asignada. Contacta al administrador.", "org_id": g.org_id}), 400
 
     org = Organization.query.get(g.org_id)
     if not org:
-        return jsonify({"error": "Organización no encontrada"}), 404
+        return jsonify({"error": f"Organización con id={g.org_id} no encontrada en la base de datos."}), 404
 
     if request.method == 'GET':
         return jsonify({
@@ -43,30 +46,42 @@ def manage_odoo_config():
         })
         
     if request.method == 'POST':
-        data = request.json
-        org.erp_url = data.get('erp_url', org.erp_url)
-        org.erp_db = data.get('erp_db', org.erp_db)
-        org.erp_username = data.get('erp_username', org.erp_username)
-        # Only update password/API key if a new one is provided and not masked
-        new_key = data.get('erp_api_key')
-        if new_key and new_key != '********':
-            org.erp_api_key = new_key
-            
-        db.session.commit()
-        return jsonify({"status": "success"})
+        import traceback
+        try:
+            data = request.json
+            if not data:
+                return jsonify({"error": "El cuerpo de la petición está vacío o no es JSON válido."}), 400
+            org.erp_url = data.get('erp_url', org.erp_url)
+            org.erp_db = data.get('erp_db', org.erp_db)
+            org.erp_username = data.get('erp_username', org.erp_username)
+            # Only update password/API key if a new one is provided and not masked
+            new_key = data.get('erp_api_key')
+            if new_key and new_key != '********':
+                org.erp_api_key = new_key
+                
+            db.session.commit()
+            return jsonify({"status": "success"})
+        except Exception as save_err:
+            db.session.rollback()
+            print('Error al guardar config Odoo:', traceback.format_exc())
+            return jsonify({"error": f"Error al guardar en la base de datos: {str(save_err)}"}), 500
 
 @integrations_bp.route('/api/admin/integrations/odoo/test', methods=['POST'])
 @require_auth
 def test_odoo_connection():
     if not getattr(g.current_user, 'is_admin', False) and g.org_role != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
+        return jsonify({"error": "Unauthorized", "detail": f"org_role={g.org_role}"}), 403
+
+    if not g.org_id:
+        return jsonify({"error": "Tu usuario no tiene una organización asignada.", "org_id": g.org_id}), 400
 
     org = Organization.query.get(g.org_id)
     if not org:
-        return jsonify({"error": "Organización no encontrada"}), 404
+        return jsonify({"error": f"Organización con id={g.org_id} no encontrada."}), 404
 
     if not org.erp_url or not org.erp_db or not org.erp_username or not org.erp_api_key:
-        return jsonify({"error": "Faltan credenciales. Guarda la configuración primero."}), 400
+        missing = [f for f, v in [('URL', org.erp_url), ('Base de Datos', org.erp_db), ('Usuario', org.erp_username), ('API Key', org.erp_api_key)] if not v]
+        return jsonify({"error": f"Faltan credenciales: {', '.join(missing)}. Guarda la configuración primero."}), 400
 
     try:
         common = _odoo_proxy(org.erp_url, 'xmlrpc/2/common')

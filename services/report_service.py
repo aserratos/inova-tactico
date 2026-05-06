@@ -15,16 +15,24 @@ def save_report_logic(report, req, current_user):
 
     current_data = json.loads(report.data_json or '{}')
     
-    if report.template.variables_json:
+    # Obtener variables: primero desde la BD, si no hay descargar desde R2
+    if report.template.variables_json and report.template.variables_json != '[]':
         variables = json.loads(report.template.variables_json)
     else:
-        doc = SmartDocxTemplate(report.template.ruta_archivo_docx)
         try:
-            variables = list(doc.get_undeclared_template_variables())
-            report.template.variables_json = json.dumps(variables)
-            db.session.commit()
+            from services.storage_service import download_file_from_r2
+            template_stream = download_file_from_r2(report.template.ruta_archivo_docx)
+            if template_stream:
+                doc = SmartDocxTemplate(template_stream)
+                variables = list(doc.get_undeclared_template_variables())
+                # Guardar en BD para no tener que descargar la próxima vez
+                report.template.variables_json = json.dumps(variables)
+            else:
+                variables = []
         except Exception as e:
+            print(f'Error extrayendo variables desde R2: {e}')
             variables = []
+
         
     filled_count = 0
     for var in variables:

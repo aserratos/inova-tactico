@@ -26,6 +26,9 @@ export default function ReportCapture() {
   const [imageFiles, setImageFiles] = useState<Record<string, File>>({});
   const [imagePreviews, setImagePreviews] = useState<Record<string, string>>({});
   
+  // Banner de datos prellenados desde cliente
+  const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
+  
   // State para el micrófono (cuál variable está grabando)
   const [recordingVar, setRecordingVar] = useState<string | null>(null);
   
@@ -49,15 +52,43 @@ export default function ReportCapture() {
         const data = await res.json();
         
         setReport(data);
-        setFormData(data.saved_data || {});
-        
-        // Populate existing image previews
-        const previews: Record<string, string> = {};
-        data.image_vars.forEach((v: string) => {
-          if (data.saved_data[v]) {
-            previews[v] = `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/report/media/${id}/${v}`;
+        const savedData = data.saved_data || {};
+
+        // Prefill: combinar datos del cliente guardados en sessionStorage con los del reporte
+        const prefillRaw = sessionStorage.getItem(`prefill_${id}`);
+        if (prefillRaw) {
+          sessionStorage.removeItem(`prefill_${id}`);
+          try {
+            const prefill: Record<string, string> = JSON.parse(prefillRaw);
+            // Inyectar solo en campos que estén vacíos en saved_data y que existan como variable en la plantilla
+            const allVars = [...(data.text_vars || []), ...(data.image_vars || [])];
+            const injected: string[] = [];
+            const merged = { ...savedData };
+            for (const varName of allVars) {
+              if (!merged[varName] && prefill[varName]) {
+                merged[varName] = prefill[varName];
+                injected.push(varName.replace(/_/g, ' '));
+              }
+            }
+            if (injected.length > 0) {
+              setPrefillBanner(`✓ Datos prellenados desde cliente: ${injected.join(', ')}`);
+            }
+            setFormData(merged);
+          } catch {
+            setFormData(savedData);
           }
-        });
+        } else {
+          setFormData(savedData);
+        }
+        
+        // Populate existing image previews from saved R2 keys
+        const previews: Record<string, string> = {};
+        for (const v of (data.image_vars || [])) {
+          if (data.saved_data?.[v]) {
+            // Solicitar URL firmada al backend para la imagen guardada en R2
+            previews[v] = `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}/media/${v}`;
+          }
+        }
         setImagePreviews(previews);
         setLoading(false);
       } catch (err) {
@@ -253,7 +284,8 @@ export default function ReportCapture() {
         alert("Guardado exitosamente");
         navigate('/');
       } else {
-        alert("Error al guardar");
+        const errData = await res.json().catch(() => ({}));
+        alert(`Error al guardar: ${errData.error || res.status}`);
       }
     } catch (e) {
       alert("Error de red al guardar");
@@ -313,6 +345,14 @@ export default function ReportCapture() {
         }`}>
           <span>{ocrResult}</span>
           <button onClick={() => setOcrResult(null)}><X size={16} /></button>
+        </div>
+      )}
+
+      {/* Banner de prefill desde cliente */}
+      {prefillBanner && (
+        <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm font-medium flex items-center justify-between bg-purple-50 text-purple-800 border border-purple-200">
+          <span>{prefillBanner}</span>
+          <button onClick={() => setPrefillBanner(null)}><X size={16} /></button>
         </div>
       )}
 
