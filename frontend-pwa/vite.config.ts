@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Inova Tactical Command',
-        short_name: 'Inova Cmd',
-        description: 'Centro de Comando Administrativo',
+        name: 'Inova Plataforma',
+        short_name: 'Inova App',
+        description: 'Plataforma Administrativa',
         theme_color: '#2563EB',
         background_color: '#ffffff',
         display: 'standalone',

@@ -192,7 +192,7 @@ export default function KanbanBoard() {
     <div className="h-full flex flex-col">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-          Operaciones en Curso
+          Documentos en Progreso
           {error && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-normal">Offline</span>}
         </h2>
         <p className="text-gray-500 mt-1">Gestión centralizada de entregables (Datos Reales)</p>

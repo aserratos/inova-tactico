@@ -106,8 +106,8 @@ export default function TemplateSelector() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Nueva Operación</h2>
-        <p className="text-gray-500 mt-1">Selecciona un formato base para iniciar el levantamiento</p>
+        <h2 className="text-2xl font-bold text-gray-900">Nuevo Documento</h2>
+        <p className="text-gray-500 mt-1">Selecciona un formato base para iniciar la captura de datos</p>
       </div>
 
       {/* Buscador de plantillas */}

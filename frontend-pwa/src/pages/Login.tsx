@@ -41,10 +41,10 @@ export default function Login() {
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-extrabold text-corporate-blue tracking-tight">
-          Inova Táctico
+          Inova Plataforma
         </h1>
         <p className="mt-2 text-sm text-gray-600">
-          Centro de Operaciones y Reportes
+          Gestión de Documentos y Reportes
         </p>
       </div>
 

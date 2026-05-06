@@ -50,7 +50,7 @@ export default function AdminLogs() {
           <Activity className="mr-3 text-corporate-blue" />
           Bitácora de Auditoría
         </h2>
-        <p className="text-gray-500 mt-1">Registro inmutable de actividades en el Centro de Comando Táctico.</p>
+        <p className="text-gray-500 mt-1">Registro inmutable de actividades en la Plataforma.</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
