@@ -20,7 +20,7 @@ def login():
         return jsonify({'error': 'Cuenta inactiva'}), 401
 
     payload = {
-        'sub': user.id,
+        'sub': str(user.id),
         'email': user.email,
         'org_id': user.org_id,
         'role': user.role,
