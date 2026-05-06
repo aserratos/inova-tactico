@@ -181,6 +181,35 @@ def get_report_media(instance_id, var_name):
     from flask import redirect
     return redirect(url)
 
+@pwa_api_bp.route('/api/report/clone/<int:instance_id>', methods=['POST'])
+@require_auth
+def clone_report(instance_id):
+    report = db.session.get(ReportInstance, instance_id)
+    if not report or report.org_id != g.org_id:
+        return jsonify({"error": "Reporte no encontrado"}), 404
+
+    new_report = ReportInstance(
+        org_id=g.org_id,
+        template_id=report.template_id,
+        nombre=f"{report.nombre} (Clon)",
+        created_by_id=g.current_user.id,
+        assigned_to_id=g.current_user.id,
+        customer_id=report.customer_id,
+        data_json=report.data_json,
+        porcentaje_avance=report.porcentaje_avance,
+        status='por_hacer'
+    )
+    
+    db.session.add(new_report)
+    db.session.commit()
+    
+    log_activity('REPORTE_CLONADO', f'Reporte original ID-{report.id} clonado como ID-{new_report.id}')
+    
+    return jsonify({
+        "status": "success",
+        "new_id": new_report.id
+    })
+
 @pwa_api_bp.route('/api/report/compile/<int:instance_id>', methods=['POST'])
 @require_auth
 def compile_report(instance_id):

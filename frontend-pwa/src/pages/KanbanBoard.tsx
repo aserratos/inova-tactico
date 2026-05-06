@@ -1,7 +1,7 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileDown, FileCog } from 'lucide-react';
+import { FileDown, FileCog, Copy } from 'lucide-react';
 import { db } from '../lib/db';
 
 interface Report {
@@ -74,6 +74,27 @@ export default function KanbanBoard() {
     }
   };
 
+  const handleClone = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    if (!confirm('¿Deseas clonar este reporte para usar sus datos base?')) return;
+    
+    try {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/clone/${id}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("¡Reporte clonado exitosamente! Lo encontrarás en la columna 'Por Hacer'.");
+        window.location.reload();
+      } else {
+        alert(data.error || "Error al clonar el reporte.");
+      }
+    } catch (err) {
+      alert("Error de red al intentar clonar.");
+    }
+  };
+
   const handleDownload = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     try {
@@ -118,7 +139,16 @@ export default function KanbanBoard() {
               <span className="text-xs font-semibold text-corporate-blue bg-blue-50 px-2 py-1 rounded">
                 REQ-{report.id.toString().padStart(3, '0')}
               </span>
-              <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={(e) => handleClone(e, report.id)} 
+                  className="text-gray-400 hover:text-corporate-blue transition-colors bg-white hover:bg-blue-50 p-1.5 rounded-md" 
+                  title="Clonar reporte"
+                >
+                  <Copy size={14} />
+                </button>
+                <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
+              </div>
             </div>
             <h4 className="font-medium text-gray-900 leading-snug">{report.nombre}</h4>
             <div className="mt-3 flex items-center justify-between">
