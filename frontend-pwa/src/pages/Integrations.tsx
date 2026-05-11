@@ -176,7 +176,7 @@ export default function Integrations() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Integraciones</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Conecta Inova Plataforma con tu ERP para sincronizar clientes automáticamente.
+            Conecta OmniFlow con tu ERP para sincronizar clientes automáticamente.
           </p>
         </div>
         <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">

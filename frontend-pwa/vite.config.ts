@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Inova Plataforma',
-        short_name: 'Inova App',
+        name: 'OmniFlow',
+        short_name: 'OmniFlow App',
         description: 'Plataforma Administrativa',
         theme_color: '#2563EB',
         background_color: '#ffffff',
