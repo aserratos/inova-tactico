@@ -1,7 +1,7 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Mic, MicOff, Save, ChevronLeft, Sparkles, X } from 'lucide-react';
+import { Camera, Mic, MicOff, Save, ChevronLeft, Sparkles, X, Edit2 } from 'lucide-react';
 import { db } from '../lib/db';
 
 interface ReportDetails {
@@ -22,6 +22,9 @@ export default function ReportCapture() {
   const [report, setReport] = useState<ReportDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
   
   // States para los formularios
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -54,6 +57,7 @@ export default function ReportCapture() {
         const data = await res.json();
         
         setReport(data);
+        setEditNameValue(data.nombre);
         const savedData = data.saved_data || {};
 
         // Prefill: combinar datos del cliente guardados en sessionStorage con los del reporte
@@ -111,6 +115,7 @@ export default function ReportCapture() {
                 image_vars: cached.image_vars || [],
                 saved_data: savedData
               });
+              setEditNameValue(cached.nombre);
               setFormData(savedData);
               setImagePreviews({}); // Imágenes no están cacheadas por ahora (requeriría blob url)
               setLoading(false);
@@ -244,6 +249,9 @@ export default function ReportCapture() {
       formDataPayload.append(key, formData[key]);
     });
     
+    // Guardar el nombre en caso de que lo hayan editado
+    formDataPayload.append('_report_name', report.nombre);
+    
     // 2. Agregar archivos de imagen nuevos
     Object.keys(imageFiles).forEach(key => {
       formDataPayload.append(key, imageFiles[key]);
@@ -319,9 +327,38 @@ export default function ReportCapture() {
           <button onClick={() => navigate('/')} className="text-gray-300 hover:text-white transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <div>
-            <h2 className="text-white font-bold text-lg leading-tight">{report.nombre}</h2>
-            <p className="text-blue-200 text-sm">{report.template_name}</p>
+          <div className="flex-1 min-w-0 mr-4 ml-2">
+            {isEditingName ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsEditingName(false);
+                      setReport({ ...report, nombre: editNameValue });
+                    }
+                  }}
+                  onBlur={() => {
+                    setIsEditingName(false);
+                    setReport({ ...report, nombre: editNameValue });
+                  }}
+                  className="bg-corporate-blue/30 text-white border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-white w-full max-w-sm text-lg font-bold"
+                />
+              </div>
+            ) : (
+              <div 
+                className="group flex items-center space-x-2 cursor-pointer" 
+                onClick={() => setIsEditingName(true)}
+                title="Renombrar documento"
+              >
+                <h2 className="text-white font-bold text-lg leading-tight truncate">{report.nombre}</h2>
+                <Edit2 size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              </div>
+            )}
+            <p className="text-blue-200 text-sm truncate">{report.template_name}</p>
           </div>
         </div>
         {/* Botón OCR IA */}

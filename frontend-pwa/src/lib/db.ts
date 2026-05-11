@@ -57,7 +57,7 @@ db.version(2).stores({
   cachedReports: 'id, template_id, status, updated_at',
   cachedTemplates: 'id',
   cachedCustomers: 'id'
-}).upgrade(tx => {
+}).upgrade(() => {
   // Manejo de migración desde v1
 });
 
