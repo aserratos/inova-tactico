@@ -397,7 +397,6 @@ export default function ReportCapture() {
                 <Edit2 size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             )}
-            )}
             <div className="flex items-center gap-3">
               <p className="text-blue-200 text-sm truncate">{report.template_name}</p>
               {report.id > 0 && team.length > 0 && (

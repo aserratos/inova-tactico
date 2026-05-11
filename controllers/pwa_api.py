@@ -14,6 +14,20 @@ def get_templates():
         "templates": [{"id": t.id, "nombre": t.nombre} for t in templates]
     })
 
+@pwa_api_bp.route('/api/team', methods=['GET'])
+@require_auth
+def get_team_members():
+    """Devuelve los miembros del equipo de la organización actual para asignaciones."""
+    from models import User
+    users = User.query.filter_by(org_id=g.org_id, is_active=True).all()
+    return jsonify({
+        "users": [{
+            "id": u.id,
+            "nombre_completo": u.nombre_completo or u.email,
+            "role": u.role
+        } for u in users]
+    })
+
 @pwa_api_bp.route('/api/customers', methods=['GET'])
 @require_auth
 def get_customers_for_selector():
@@ -61,6 +75,7 @@ def get_reports():
             "porcentaje_avance": r.porcentaje_avance,
             "template_name": r.template.nombre if r.template else "Sin plantilla",
             "assigned_to_id": r.assigned_to_id,
+            "assigned_to_name": r.assigned_to.nombre_completo if r.assigned_to else "Sin asignar",
             "created_by_id": r.created_by_id,
             "comentarios": r.comentarios,
             "archivo_compilado_path": r.archivo_compilado_path if r.status == 'terminado' else None,
@@ -295,3 +310,52 @@ def download_compiled_report(instance_id):
         return jsonify({"error": "Error al generar link de descarga."}), 500
         
     return jsonify({"url": url})
+
+@pwa_api_bp.route('/api/report/assign/<int:instance_id>', methods=['POST'])
+@require_auth
+def assign_report(instance_id):
+    report = db.session.get(ReportInstance, instance_id)
+    if not report or report.org_id != g.org_id:
+        return jsonify({"error": "Reporte no encontrado"}), 404
+        
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
+    is_admin = g.org_role in ['admin', 'supervisor']
+    is_owner = report.created_by_id == g.current_user.id or report.assigned_to_id == g.current_user.id
+    
+    if not (is_super_admin or is_admin or is_owner):
+        return jsonify({"error": "Solo el responsable o administrador puede reasignar este reporte"}), 403
+        
+    data = request.json
+    user_id = data.get('user_id')
+    
+    from models import User
+    user = db.session.get(User, user_id)
+    if not user or user.org_id != g.org_id:
+        return jsonify({"error": "Usuario inválido"}), 400
+        
+    report.assigned_to_id = user.id
+    db.session.commit()
+    log_activity('REPORTE_ASIGNADO', f'Reporte {report.nombre} asignado a {user.nombre_completo}')
+    return jsonify({"status": "success"})
+
+@pwa_api_bp.route('/api/report/rename/<int:instance_id>', methods=['POST'])
+@require_auth
+def rename_report(instance_id):
+    report = db.session.get(ReportInstance, instance_id)
+    if not report or report.org_id != g.org_id:
+        return jsonify({"error": "Reporte no encontrado"}), 404
+        
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
+    is_admin = g.org_role in ['admin', 'supervisor']
+    is_owner = report.created_by_id == g.current_user.id or report.assigned_to_id == g.current_user.id
+    
+    if not (is_super_admin or is_admin or is_owner):
+        return jsonify({"error": "Solo el responsable o administrador puede renombrar este reporte"}), 403
+        
+    data = request.json
+    new_nombre = data.get('nombre')
+    if new_nombre:
+        report.nombre = new_nombre
+        db.session.commit()
+        
+    return jsonify({"status": "success", "nombre": report.nombre})
