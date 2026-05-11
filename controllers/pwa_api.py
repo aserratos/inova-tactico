@@ -318,11 +318,11 @@ def download_compiled_report(instance_id):
 @pwa_api_bp.route('/api/report/assign/<int:instance_id>', methods=['POST'])
 @require_auth
 def assign_report(instance_id):
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
     report = db.session.get(ReportInstance, instance_id)
-    if not report or report.org_id != g.org_id:
+    if not report or (not is_super_admin and report.org_id != g.org_id):
         return jsonify({"error": "Reporte no encontrado"}), 404
         
-    is_super_admin = getattr(g.current_user, 'is_admin', False)
     is_admin = g.org_role in ['admin', 'supervisor']
     is_owner = report.created_by_id == g.current_user.id or report.assigned_to_id == g.current_user.id
     
@@ -334,7 +334,7 @@ def assign_report(instance_id):
     
     from models import User
     user = db.session.get(User, user_id)
-    if not user or user.org_id != g.org_id:
+    if not user or (not is_super_admin and user.org_id != g.org_id):
         return jsonify({"error": "Usuario inválido"}), 400
         
     report.assigned_to_id = user.id
@@ -345,11 +345,11 @@ def assign_report(instance_id):
 @pwa_api_bp.route('/api/report/rename/<int:instance_id>', methods=['POST'])
 @require_auth
 def rename_report(instance_id):
+    is_super_admin = getattr(g.current_user, 'is_admin', False)
     report = db.session.get(ReportInstance, instance_id)
-    if not report or report.org_id != g.org_id:
+    if not report or (not is_super_admin and report.org_id != g.org_id):
         return jsonify({"error": "Reporte no encontrado"}), 404
         
-    is_super_admin = getattr(g.current_user, 'is_admin', False)
     is_admin = g.org_role in ['admin', 'supervisor']
     is_owner = report.created_by_id == g.current_user.id or report.assigned_to_id == g.current_user.id
     
