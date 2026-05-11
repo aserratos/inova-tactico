@@ -19,7 +19,11 @@ def get_templates():
 def get_team_members():
     """Devuelve los miembros del equipo de la organización actual para asignaciones."""
     from models import User
-    users = User.query.filter_by(org_id=g.org_id, is_active=True).all()
+    if getattr(g.current_user, 'is_admin', False):
+        users = User.query.filter_by(is_active=True).all()
+    else:
+        users = User.query.filter_by(org_id=g.org_id, is_active=True).all()
+        
     return jsonify({
         "users": [{
             "id": u.id,
