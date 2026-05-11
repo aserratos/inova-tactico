@@ -209,16 +209,23 @@ export default function KanbanBoard() {
 
     return (
       <div 
-        draggable
-        onDragStart={(e) => handleDragStart(e, report.id)}
-        onClick={() => navigate(`/report/${report.id}`)}
+        onClick={() => navigate(`/capture/${report.id}`)}
         className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow active:cursor-grabbing group"
       >
         <div className="flex justify-between items-start mb-2">
-          <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-md">
-            #{report.id < 0 ? `OFF-${Math.abs(report.id)}` : report.id}
+          <span className="text-xs font-semibold text-corporate-blue bg-blue-50 px-2 py-1 rounded">
+            REQ-{report.id.toString().padStart(3, '0')}
           </span>
-          <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={(e) => handleClone(e, report.id)} 
+              className="text-gray-400 hover:text-corporate-blue transition-colors bg-white hover:bg-blue-50 p-1.5 rounded-md" 
+              title="Clonar reporte"
+            >
+              <Copy size={14} />
+            </button>
+            <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
+          </div>
         </div>
         
         <div onClick={e => e.stopPropagation()}>
@@ -267,20 +274,22 @@ export default function KanbanBoard() {
         </div>
         
         {status === 'terminado' && (
-          <div className="mt-4 pt-3 border-t border-gray-50 flex gap-2">
-            <button 
-              onClick={(e) => handleDownloadPDF(e, report.id)}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 bg-gray-50 hover:bg-corporate-blue hover:text-white text-gray-600 rounded-lg text-xs font-medium transition-colors"
-            >
-              <FileDown size={14} /> PDF
-            </button>
-            {report.has_compiled_file && (
+          <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+            {report.has_compiled_file ? (
               <button 
-                onClick={(e) => handleDownloadCompiled(e, report.id)}
-                className="flex items-center justify-center py-1.5 px-3 bg-green-50 hover:bg-green-600 hover:text-white text-green-700 rounded-lg text-xs font-medium transition-colors"
-                title="Descargar Documento Generado"
+                onClick={(e) => handleDownload(e, report.id)}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-md text-xs font-bold transition-colors"
+              >
+                <FileDown size={14} />
+                <span>Descargar Word</span>
+              </button>
+            ) : (
+              <button 
+                onClick={(e) => handleCompile(e, report.id)}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-corporate-blue hover:bg-blue-100 rounded-md text-xs font-bold transition-colors"
               >
                 <FileCog size={14} />
+                <span>Generar Word</span>
               </button>
             )}
           </div>

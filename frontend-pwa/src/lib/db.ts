@@ -26,6 +26,8 @@ export interface CachedReport {
   has_compiled_file?: boolean;
   template_name?: string;
   customer_id?: number | null;
+  assigned_to_id?: number;
+  _report_name?: string;
   text_vars?: string[];
   image_vars?: string[];
 }
