@@ -177,6 +177,118 @@ export default function KanbanBoard() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const ReportCard = ({ report, status }: { report: Report, status: string }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [tempName, setTempName] = useState(report.nombre);
+
+    const handleNameChange = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.stopPropagation();
+        try {
+          if (report.id < 0) {
+            await db.cachedReports.update(report.id, { _report_name: tempName });
+          } else {
+            const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/rename/${report.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombre: tempName })
+            });
+            if (!res.ok) throw new Error("No se pudo renombrar en servidor");
+          }
+          setReports(prev => prev.map(r => r.id === report.id ? { ...r, nombre: tempName } : r));
+        } catch (err) {
+          alert("Error al guardar el nombre. Si está offline, asegúrese de editar un documento offline.");
+        }
+        setIsEditing(false);
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        setTempName(report.nombre);
+        setIsEditing(false);
+      }
+    };
+
+    return (
+      <div 
+        draggable
+        onDragStart={(e) => handleDragStart(e, report.id)}
+        onClick={() => navigate(`/report/${report.id}`)}
+        className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow active:cursor-grabbing group"
+      >
+        <div className="flex justify-between items-start mb-2">
+          <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-md">
+            #{report.id < 0 ? `OFF-${Math.abs(report.id)}` : report.id}
+          </span>
+          <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
+        </div>
+        
+        <div onClick={e => e.stopPropagation()}>
+          {isEditing ? (
+            <input 
+              autoFocus
+              className="font-medium text-gray-900 leading-snug w-full border-b border-corporate-blue outline-none"
+              value={tempName}
+              onChange={e => setTempName(e.target.value)}
+              onKeyDown={handleNameChange}
+              onBlur={() => setIsEditing(false)}
+            />
+          ) : (
+            <h4 
+              className="font-medium text-gray-900 leading-snug hover:text-corporate-blue transition-colors"
+              onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+              title="Haz clic para renombrar"
+            >
+              {report.nombre}
+            </h4>
+          )}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div 
+            className="w-6 h-6 shrink-0 rounded-full bg-blue-100 border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-corporate-blue" 
+            title={report.assigned_to_name}
+          >
+            {getInitials(report.assigned_to_name)}
+          </div>
+          
+          <div className="flex-1" onClick={e => e.stopPropagation()}>
+            <select 
+              className="text-xs w-full bg-gray-50 border border-gray-200 rounded p-1 text-gray-600 outline-none hover:border-corporate-blue focus:border-corporate-blue transition-colors"
+              value={report.assigned_to_id || ''}
+              onChange={(e) => handleAssign(e, report.id)}
+            >
+              <option value="" disabled>Asignar a...</option>
+              {team.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre_completo}</option>
+              ))}
+            </select>
+          </div>
+
+          <span className="text-xs font-medium text-gray-500 shrink-0">{report.porcentaje_avance}%</span>
+        </div>
+        
+        {status === 'terminado' && (
+          <div className="mt-4 pt-3 border-t border-gray-50 flex gap-2">
+            <button 
+              onClick={(e) => handleDownloadPDF(e, report.id)}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 bg-gray-50 hover:bg-corporate-blue hover:text-white text-gray-600 rounded-lg text-xs font-medium transition-colors"
+            >
+              <FileDown size={14} /> PDF
+            </button>
+            {report.has_compiled_file && (
+              <button 
+                onClick={(e) => handleDownloadCompiled(e, report.id)}
+                className="flex items-center justify-center py-1.5 px-3 bg-green-50 hover:bg-green-600 hover:text-white text-green-700 rounded-lg text-xs font-medium transition-colors"
+                title="Descargar Documento Generado"
+              >
+                <FileCog size={14} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const Column = ({ title, status, countClass }: { title: string, status: string, countClass: string }) => (
     <div className="w-80 flex flex-col bg-gray-50/50 rounded-xl p-4 border border-gray-200 shadow-sm shrink-0">
       <h3 className="font-semibold text-gray-700 flex items-center justify-between mb-4">
@@ -185,71 +297,7 @@ export default function KanbanBoard() {
       </h3>
       <div className="space-y-3 flex-1 overflow-y-auto">
         {getReportsByStatus(status).map(report => (
-          <div key={report.id} onClick={() => navigate(`/capture/${report.id}`)} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-xs font-semibold text-corporate-blue bg-blue-50 px-2 py-1 rounded">
-                REQ-{report.id.toString().padStart(3, '0')}
-              </span>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={(e) => handleClone(e, report.id)} 
-                  className="text-gray-400 hover:text-corporate-blue transition-colors bg-white hover:bg-blue-50 p-1.5 rounded-md" 
-                  title="Clonar reporte"
-                >
-                  <Copy size={14} />
-                </button>
-                <span className="text-xs text-gray-400">{report.fecha_actualizacion}</span>
-              </div>
-            </div>
-            <h4 className="font-medium text-gray-900 leading-snug">{report.nombre}</h4>
-            <div className="mt-3 flex items-center justify-between">
-              <div 
-                className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-corporate-blue" 
-                title={report.assigned_to_name}
-              >
-                {getInitials(report.assigned_to_name)}
-              </div>
-              
-              {user?.role === 'admin' || user?.role === 'supervisor' ? (
-                <div className="flex-1 px-2" onClick={e => e.stopPropagation()}>
-                  <select 
-                    className="text-xs w-full bg-gray-50 border border-gray-200 rounded p-1 text-gray-600 outline-none focus:border-corporate-blue"
-                    value={report.assigned_to_id || ''}
-                    onChange={(e) => handleAssign(e, report.id)}
-                  >
-                    <option value="" disabled>Asignar a...</option>
-                    {team.map(t => (
-                      <option key={t.id} value={t.id}>{t.nombre_completo}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
-              <span className="text-xs font-medium text-gray-500 shrink-0">{report.porcentaje_avance}%</span>
-            </div>
-            
-            {status === 'terminado' && (
-              <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
-                {report.has_compiled_file ? (
-                  <button 
-                    onClick={(e) => handleDownload(e, report.id)}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-md text-xs font-bold transition-colors"
-                  >
-                    <FileDown size={14} />
-                    <span>Descargar Word</span>
-                  </button>
-                ) : (
-                  <button 
-                    onClick={(e) => handleCompile(e, report.id)}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-corporate-blue hover:bg-blue-100 rounded-md text-xs font-bold transition-colors"
-                  >
-                    <FileCog size={14} />
-                    <span>Generar Word</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          <ReportCard key={report.id} report={report} status={status} />
         ))}
       </div>
     </div>

@@ -14,6 +14,12 @@ interface ReportDetails {
   text_vars: string[];
   image_vars: string[];
   saved_data: Record<string, string>;
+  assigned_to_id?: number;
+}
+
+interface TeamMember {
+  id: number;
+  nombre_completo: string;
 }
 
 export default function ReportCapture() {
@@ -25,6 +31,7 @@ export default function ReportCapture() {
   
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
+  const [team, setTeam] = useState<TeamMember[]>([]);
   
   // States para los formularios
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -52,12 +59,21 @@ export default function ReportCapture() {
       try {
         if (!navigator.onLine) throw new Error('Offline');
         
-        const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' });
+        const [res, teamRes] = await Promise.all([
+          apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/${id}`, { credentials: 'include' }),
+          apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/team`, { credentials: 'include' }).catch(() => null)
+        ]);
+
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
         
         setReport(data);
         setEditNameValue(data.nombre);
+        
+        if (teamRes && teamRes.ok) {
+          const teamData = await teamRes.json();
+          setTeam(teamData.users || []);
+        }
         const savedData = data.saved_data || {};
 
         // Prefill: combinar datos del cliente guardados en sessionStorage con los del reporte
@@ -113,7 +129,8 @@ export default function ReportCapture() {
                 template_name: cached.template_name || 'Plantilla Offline',
                 text_vars: cached.text_vars || [],
                 image_vars: cached.image_vars || [],
-                saved_data: savedData
+                saved_data: savedData,
+                assigned_to_id: cached.assigned_to_id
               });
               setEditNameValue(cached.nombre);
               setFormData(savedData);
@@ -316,6 +333,28 @@ export default function ReportCapture() {
     }
   };
 
+  const handleAssign = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    e.stopPropagation();
+    const newUserId = parseInt(e.target.value);
+    if (!newUserId || !report || report.id < 0) return;
+
+    try {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/assign/${report.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: newUserId })
+      });
+      if (res.ok) {
+        setReport(prev => prev ? { ...prev, assigned_to_id: newUserId } : prev);
+      } else {
+        const data = await res.json();
+        alert(data.error || "No se pudo asignar");
+      }
+    } catch (err) {
+      alert("Error de red al asignar");
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Cargando formulario...</div>;
   if (!report) return <div className="p-8 text-red-500">Reporte no encontrado</div>;
 
@@ -358,7 +397,24 @@ export default function ReportCapture() {
                 <Edit2 size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             )}
-            <p className="text-blue-200 text-sm truncate">{report.template_name}</p>
+            )}
+            <div className="flex items-center gap-3">
+              <p className="text-blue-200 text-sm truncate">{report.template_name}</p>
+              {report.id > 0 && team.length > 0 && (
+                <div onClick={e => e.stopPropagation()}>
+                  <select 
+                    className="text-xs bg-white/10 text-white border border-white/20 rounded p-1 outline-none focus:border-white transition-colors"
+                    value={report.assigned_to_id || ''}
+                    onChange={handleAssign}
+                  >
+                    <option value="" disabled className="text-gray-900">Asignar a...</option>
+                    {team.map(t => (
+                      <option key={t.id} value={t.id} className="text-gray-900">{t.nombre_completo}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         {/* Botón OCR IA */}
