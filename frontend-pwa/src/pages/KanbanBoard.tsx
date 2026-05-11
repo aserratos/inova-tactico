@@ -31,8 +31,10 @@ export default function KanbanBoard() {
         setReports(data.reports);
         
         // Save to offline cache
+        // Mantener reportes con ID negativo (creados offline) que aún no se sincronizan
+        const offlineReports = await db.cachedReports.filter(r => r.id < 0).toArray();
         await db.cachedReports.clear();
-        await db.cachedReports.bulkAdd(data.reports);
+        await db.cachedReports.bulkAdd([...data.reports, ...offlineReports]);
         setLoading(false);
       } catch (err: any) {
         // Fallback to offline cache

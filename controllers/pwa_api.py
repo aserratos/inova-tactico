@@ -111,6 +111,56 @@ def start_report(template_id):
     log_activity('REPORTE_INICIADO', f'Inició reporte desde PWA: {report.nombre}')
     return jsonify({"status": "success", "id": report.id, "customer_data": customer_data})
 
+@pwa_api_bp.route('/api/report/sync_offline_create', methods=['POST'])
+@require_auth
+def sync_offline_create():
+    """Crea un reporte que fue iniciado y guardado estando offline."""
+    from models import Customer
+    template_id = request.form.get('_template_id')
+    customer_id = request.form.get('_customer_id')
+
+    if not template_id:
+        return jsonify({"error": "Falta el ID de plantilla"}), 400
+
+    template = db.session.get(Template, int(template_id))
+    if not template or template.org_id != g.org_id:
+        return jsonify({"error": "Plantilla no encontrada"}), 404
+
+    customer_data = {}
+    if customer_id and customer_id != 'null':
+        customer = Customer.query.filter_by(id=int(customer_id), org_id=g.org_id).first()
+        if customer:
+            customer_data = {"nombre_empresa": customer.nombre_empresa or ''}
+
+    report_nombre = f"Reporte de {template.nombre}"
+    if customer_data.get('nombre_empresa'):
+        report_nombre += f" — {customer_data['nombre_empresa']}"
+
+    report = ReportInstance(
+        org_id=g.org_id,
+        template_id=template.id,
+        nombre=report_nombre,
+        created_by_id=g.current_user.id,
+        assigned_to_id=g.current_user.id,
+        customer_id=int(customer_id) if customer_id and customer_id != 'null' else None
+    )
+    db.session.add(report)
+    db.session.flush() # Obtener ID para save_report_logic
+
+    # Ahora guardamos los datos (el payload incluía los datos del form igual que save)
+    save_report_logic(report, request, g.current_user)
+    
+    db.session.commit()
+    log_activity('REPORTE_SYNC_OFFLINE', f'Sincronizó reporte offline: {report.nombre} (ID: {report.id})')
+    
+    return jsonify({
+        "status": "success",
+        "id": report.id,
+        "porcentaje_avance": report.porcentaje_avance,
+        "status_actual": report.status
+    })
+
+
 @pwa_api_bp.route('/api/report/<int:instance_id>', methods=['GET'])
 @require_auth
 def get_report(instance_id):

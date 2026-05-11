@@ -25,6 +25,7 @@ export interface CachedReport {
   asignado_iniciales?: string;
   has_compiled_file?: boolean;
   template_name?: string;
+  customer_id?: number | null;
   text_vars?: string[];
   image_vars?: string[];
 }
@@ -35,17 +36,29 @@ export interface CachedTemplate {
   variables_json: string;
 }
 
+export interface CachedCustomer {
+  id: number;
+  nombre_empresa: string;
+  rfc: string | null;
+  contacto_principal: string | null;
+  erp_source: string | null;
+}
+
 const db = new Dexie('InovaTacticoDB') as Dexie & {
   syncQueue: EntityTable<SyncTask, 'id'>;
   cachedReports: EntityTable<CachedReport, 'id'>;
   cachedTemplates: EntityTable<CachedTemplate, 'id'>;
+  cachedCustomers: EntityTable<CachedCustomer, 'id'>;
 };
 
 // Declaración del esquema de la base de datos local
-db.version(1).stores({
+db.version(2).stores({
   syncQueue: '++id, status, timestamp',
   cachedReports: 'id, template_id, status, updated_at',
-  cachedTemplates: 'id'
+  cachedTemplates: 'id',
+  cachedCustomers: 'id'
+}).upgrade(tx => {
+  // Manejo de migración desde v1
 });
 
 export { db };

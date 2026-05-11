@@ -6,6 +6,8 @@ import { db } from '../lib/db';
 
 interface ReportDetails {
   id: number;
+  template_id?: number;
+  customer_id?: number | null;
   nombre: string;
   status: string;
   template_name: string;
@@ -100,6 +102,8 @@ export default function ReportCapture() {
               const savedData = JSON.parse(cached.data_json || '{}');
               setReport({
                 id: cached.id,
+                template_id: cached.template_id,
+                customer_id: cached.customer_id,
                 nombre: cached.nombre,
                 status: cached.status,
                 template_name: cached.template_name || 'Plantilla Offline',
@@ -231,7 +235,7 @@ export default function ReportCapture() {
   };
 
   const handleSave = async () => {
-    if (!id) return;
+    if (!id || !report) return;
     setSaving(true);
     
     const formDataPayload = new FormData();
@@ -245,6 +249,16 @@ export default function ReportCapture() {
       formDataPayload.append(key, imageFiles[key]);
     });
 
+    const isOfflineCreated = Number(id) < 0;
+    if (isOfflineCreated) {
+      if (report.template_id) formDataPayload.append('_template_id', String(report.template_id));
+      if (report.customer_id) formDataPayload.append('_customer_id', String(report.customer_id));
+    }
+
+    const targetUrl = isOfflineCreated 
+      ? `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/sync_offline_create`
+      : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`;
+
     try {
       if (!navigator.onLine) {
         // Modo Offline: Guardar en Dexie y salir
@@ -254,7 +268,7 @@ export default function ReportCapture() {
         });
 
         await db.syncQueue.add({
-          url: `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`,
+          url: targetUrl,
           method: 'POST',
           payload: payloadObject,
           isFormData: true,
@@ -274,7 +288,7 @@ export default function ReportCapture() {
         return;
       }
 
-      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/save/${id}`, {
+      const res = await apiFetch(targetUrl, {
         method: 'POST',
         body: formDataPayload,
         credentials: 'include'

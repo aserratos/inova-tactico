@@ -1,6 +1,7 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../lib/db';
 import { FileText, Search, PlusCircle, Building2, X, ChevronRight, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface Template {
@@ -36,22 +37,35 @@ export default function TemplateSelector() {
     // Cargar plantillas
     apiFetch(`${API}/api/templates`, { credentials: 'include' })
       .then(res => res.json())
-      .then(data => {
-        setTemplates(data.templates || []);
+      .then(async data => {
+        const t = data.templates || [];
+        setTemplates(t);
         setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-        if (!navigator.onLine) {
-          alert('Estás en modo Offline. No puedes iniciar reportes nuevos, pero puedes continuar los existentes en el tablero.');
+        if (t.length > 0) {
+          await db.cachedTemplates.bulkPut(t);
         }
+      })
+      .catch(async () => {
+        // Fallback offline
+        const localTemplates = await db.cachedTemplates.toArray();
+        setTemplates(localTemplates);
+        setLoading(false);
       });
 
     // Cargar clientes para el selector
     apiFetch(`${API}/api/customers`, { credentials: 'include' })
       .then(res => res.json())
-      .then(data => setCustomers(data.customers || []))
-      .catch(() => {});
+      .then(async data => {
+        const c = data.customers || [];
+        setCustomers(c);
+        if (c.length > 0) {
+          await db.cachedCustomers.bulkPut(c);
+        }
+      })
+      .catch(async () => {
+        const localCustomers = await db.cachedCustomers.toArray();
+        setCustomers(localCustomers);
+      });
   }, []);
 
   // Cuando se abre el modal, enfocar la búsqueda
@@ -70,6 +84,44 @@ export default function TemplateSelector() {
   const handleStartReport = async () => {
     if (!selectedTemplate) return;
     setStarting(true);
+    
+    if (!navigator.onLine) {
+      // Flujo Offline
+      const fakeId = -Date.now();
+      const customerData = selectedCustomer ? {
+        nombre_empresa: selectedCustomer.nombre_empresa,
+        rfc: selectedCustomer.rfc || '',
+        contacto_principal: selectedCustomer.contacto_principal || '',
+        cliente: selectedCustomer.nombre_empresa,
+        empresa: selectedCustomer.nombre_empresa,
+      } : {};
+
+      if (Object.keys(customerData).length > 0) {
+        sessionStorage.setItem(`prefill_${fakeId}`, JSON.stringify(customerData));
+      }
+
+      // Crear reporte "fantasma" en IndexedDB para que ReportCapture pueda abrirlo
+      const reportNombre = `Reporte de ${selectedTemplate.nombre}` + (selectedCustomer ? ` — ${selectedCustomer.nombre_empresa}` : '');
+      
+      await db.cachedReports.put({
+        id: fakeId,
+        template_id: selectedTemplate.id,
+        customer_id: selectedCustomer?.id || null,
+        nombre: reportNombre,
+        status: 'por_hacer',
+        porcentaje_avance: 0,
+        comentarios: '',
+        data_json: '{}',
+        updated_at: new Date().toISOString(),
+        template_name: selectedTemplate.nombre
+      });
+
+      setStarting(false);
+      navigate(`/capture/${fakeId}`);
+      return;
+    }
+
+    // Flujo Online
     try {
       const body: any = { customer_id: selectedCustomer?.id || null };
       const res = await apiFetch(`${API}/api/report/start/${selectedTemplate.id}`, {
