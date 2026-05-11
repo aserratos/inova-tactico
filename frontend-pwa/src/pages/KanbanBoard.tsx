@@ -1,8 +1,9 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileDown, FileCog, Copy } from 'lucide-react';
+import { FileDown, FileCog, Copy, Clock, AlertTriangle, CheckCircle, User as UserIcon } from 'lucide-react';
 import { db } from '../lib/db';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Report {
   id: number;
@@ -10,34 +11,49 @@ interface Report {
   status: string;
   porcentaje_avance: number;
   fecha_actualizacion: string;
-  asignado: string;
-  asignado_iniciales: string;
+  assigned_to_id: number;
+  assigned_to_name: string;
+  created_by_id: number;
   has_compiled_file?: boolean;
+}
+
+interface TeamMember {
+  id: number;
+  nombre_completo: string;
 }
 
 export default function KanbanBoard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Error de servidor o sesión expirada');
+        const [resReports, resTeam] = await Promise.all([
+          apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/reports`, { credentials: 'include' }),
+          apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/team`, { credentials: 'include' }).catch(() => null)
+        ]);
+
+        if (!resReports.ok) throw new Error('Error de servidor o sesión expirada');
         
-        const data = await res.json();
+        const data = await resReports.json();
         setReports(data.reports);
+
+        if (resTeam && resTeam.ok) {
+           const teamData = await resTeam.json();
+           setTeam(teamData.users || []);
+        }
         
         // Save to offline cache
-        // Mantener reportes con ID negativo (creados offline) que aún no se sincronizan
         const offlineReports = await db.cachedReports.filter(r => r.id < 0).toArray();
         await db.cachedReports.clear();
         await db.cachedReports.bulkAdd([...data.reports, ...offlineReports]);
         setLoading(false);
       } catch (err: any) {
-        // Fallback to offline cache
         console.warn("No se pudo conectar al servidor. Cargando caché offline...");
         const cached = await db.cachedReports.toArray();
         if (cached && cached.length > 0) {
@@ -128,6 +144,39 @@ export default function KanbanBoard() {
     }
   };
 
+  const handleAssign = async (e: React.ChangeEvent<HTMLSelectElement>, reportId: number) => {
+    e.stopPropagation();
+    const newUserId = parseInt(e.target.value);
+    if (!newUserId) return;
+
+    try {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/report/assign/${reportId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: newUserId })
+      });
+      if (res.ok) {
+        setReports(reports.map(r => 
+          r.id === reportId 
+            ? { ...r, assigned_to_id: newUserId, assigned_to_name: team.find(t => t.id === newUserId)?.nombre_completo || r.assigned_to_name } 
+            : r
+        ));
+      } else {
+        const data = await res.json();
+        alert(data.error || "No se pudo asignar");
+      }
+    } catch (err) {
+      alert("Error de red al asignar");
+    }
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'SA';
+    const parts = name.split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+
   const Column = ({ title, status, countClass }: { title: string, status: string, countClass: string }) => (
     <div className="w-80 flex flex-col bg-gray-50/50 rounded-xl p-4 border border-gray-200 shadow-sm shrink-0">
       <h3 className="font-semibold text-gray-700 flex items-center justify-between mb-4">
@@ -154,10 +203,29 @@ export default function KanbanBoard() {
             </div>
             <h4 className="font-medium text-gray-900 leading-snug">{report.nombre}</h4>
             <div className="mt-3 flex items-center justify-between">
-              <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-corporate-blue" title={report.asignado}>
-                {report.asignado_iniciales}
+              <div 
+                className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-corporate-blue" 
+                title={report.assigned_to_name}
+              >
+                {getInitials(report.assigned_to_name)}
               </div>
-              <span className="text-xs font-medium text-gray-500">{report.porcentaje_avance}%</span>
+              
+              {user?.role === 'admin' || user?.role === 'supervisor' ? (
+                <div className="flex-1 px-2" onClick={e => e.stopPropagation()}>
+                  <select 
+                    className="text-xs w-full bg-gray-50 border border-gray-200 rounded p-1 text-gray-600 outline-none focus:border-corporate-blue"
+                    value={report.assigned_to_id || ''}
+                    onChange={(e) => handleAssign(e, report.id)}
+                  >
+                    <option value="" disabled>Asignar a...</option>
+                    {team.map(t => (
+                      <option key={t.id} value={t.id}>{t.nombre_completo}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <span className="text-xs font-medium text-gray-500 shrink-0">{report.porcentaje_avance}%</span>
             </div>
             
             {status === 'terminado' && (
@@ -190,14 +258,54 @@ export default function KanbanBoard() {
   if (loading) return <div className="p-8">Cargando tablero...</div>;
   if (error && reports.length === 0) return <div className="p-8 text-red-500">{error}</div>;
 
+  const misReportes = reports.filter(r => r.assigned_to_id === user?.id).length;
+  const terminados = getStatusCount('terminado');
+  const enEspera = getStatusCount('por_hacer');
+  // Asumiremos retrasados como 'pendiente' por simplicidad, o se puede calcular por fecha.
+  const retrasados = getStatusCount('pendiente');
+
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-          Documentos en Progreso
-          {error && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-normal">Offline</span>}
-        </h2>
-        <p className="text-gray-500 mt-1">Gestión centralizada de entregables (Datos Reales)</p>
+      {/* Dashboard de Métricas Rápidas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-blue-50 text-corporate-blue rounded-xl"><UserIcon size={20} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Mis Asignados</p>
+            <p className="text-2xl font-bold text-gray-900">{misReportes}</p>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-gray-50 text-gray-600 rounded-xl"><Clock size={20} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">En Espera</p>
+            <p className="text-2xl font-bold text-gray-900">{enEspera}</p>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-yellow-50 text-yellow-600 rounded-xl"><AlertTriangle size={20} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Con Problemas</p>
+            <p className="text-2xl font-bold text-gray-900">{retrasados}</p>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-green-50 text-green-600 rounded-xl"><CheckCircle size={20} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Terminados</p>
+            <p className="text-2xl font-bold text-gray-900">{terminados}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-6 flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            Tablero de Producción
+            {error && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-normal">Offline</span>}
+          </h2>
+          <p className="text-gray-500 mt-1">Arrastra o haz clic para gestionar el estado de los documentos.</p>
+        </div>
       </div>
       
       <div className="flex-1 overflow-x-auto pb-8 md:pb-0">
