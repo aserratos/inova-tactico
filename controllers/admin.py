@@ -152,6 +152,10 @@ def create_user():
     db.session.add(new_user)
     db.session.commit()
     
+    # Enviar correo de bienvenida con contraseña temporal
+    from services.notification_service import send_welcome_email
+    send_welcome_email(new_user, password)
+    
     return jsonify({"status": "success", "id": new_user.id})
 
 @admin_bp.route('/api/admin/users/<int:user_id>/toggle', methods=['POST'])

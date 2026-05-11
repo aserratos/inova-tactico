@@ -41,3 +41,4 @@ WTForms==3.2.1
 
 requests==2.31.0
 pyjwt[crypto]
+resend==2.6.0

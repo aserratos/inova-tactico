@@ -20,8 +20,9 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
-    # Habilitar CORS para que la PWA (React/Vercel) pueda comunicarse con la API
-    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
+    # Habilitar CORS restrictivo para la PWA (React/Vercel)
+    allowed_origins = os.environ.get('CORS_ORIGINS', 'https://inova-tactico.vercel.app,http://localhost:5173,http://localhost:3000').split(',')
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": allowed_origins}})
 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

@@ -109,6 +109,13 @@ def background_compile_task(app, instance_id, user_id):
             db.session.add(notif)
             db.session.commit()
             
+            # Enviar correo operativo via Resend
+            try:
+                from services.notification_service import send_report_completed_notification
+                send_report_completed_notification(report)
+            except Exception as email_err:
+                print("Error enviando email operativo:", email_err)
+            
         except Exception as e:
             notif = Notification(
                 user_id=user_id,
