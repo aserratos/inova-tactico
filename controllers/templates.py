@@ -276,41 +276,47 @@ def api_upload_template():
     if file.filename == '':
         return {"error": "Archivo sin nombre"}, 400
         
-    if file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() == 'docx':
-        filename = secure_filename(file.filename)
-        from services.storage_service import upload_file_to_r2
-        object_key = f"templates/{int(datetime.now().timestamp())}_{filename}"
-        ok = upload_file_to_r2(file, object_key)
-        if not ok:
-            return {"error": "Error al subir el archivo a almacenamiento. Verifica las credenciales de R2."}, 500
-        
-        nombre = request.form.get('nombre')
-        if not nombre: nombre = filename.rsplit('.', 1)[0]
-        
-        try:
-            file.seek(0)
-            doc = SmartDocxTemplate(file)
-            vars = list(doc.get_undeclared_template_variables())
-            vars_json = json.dumps(vars)
-        except Exception as ve:
-            print(f'Error extrayendo variables de plantilla: {ve}')
-            vars_json = "[]"
-
-        new_template = Template(
-            nombre=nombre,
-            ruta_archivo_docx=object_key,
-            uploader_id=g.current_user.id,
-            is_public=True,
-            variables_json=vars_json,
-            org_id=g.org_id
-        )
-        db.session.add(new_template)
-        db.session.commit()
-        log_activity('PLANTILLA_CREADA_API', f'Subíó nuevo formato matriz: {nombre}')
-        
-        return {"status": "success", "id": new_template.id, "nombre": nombre, "variables": json.loads(vars_json)}
-    else:
+    if not (file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() == 'docx'):
         return {"error": "Formato inválido. Solo se permiten archivos .docx"}, 400
+
+    filename = secure_filename(file.filename)
+    
+    # Leer el archivo en memoria UNA VEZ para poder reutilizarlo
+    import io as _io
+    file_bytes = file.read()
+    file_stream_for_upload = _io.BytesIO(file_bytes)
+    file_stream_for_vars = _io.BytesIO(file_bytes)
+
+    from services.storage_service import upload_file_to_r2
+    object_key = f"templates/{int(datetime.now().timestamp())}_{filename}"
+    ok = upload_file_to_r2(file_stream_for_upload, object_key)
+    if not ok:
+        return {"error": "Error al subir el archivo a almacenamiento. Verifica las credenciales de R2."}, 500
+    
+    nombre = request.form.get('nombre')
+    if not nombre: nombre = filename.rsplit('.', 1)[0]
+    
+    try:
+        doc = SmartDocxTemplate(file_stream_for_vars)
+        vars = list(doc.get_undeclared_template_variables())
+        vars_json = json.dumps(vars)
+    except Exception as ve:
+        print(f'Error extrayendo variables de plantilla: {ve}')
+        vars_json = "[]"
+
+    new_template = Template(
+        nombre=nombre,
+        ruta_archivo_docx=object_key,
+        uploader_id=g.current_user.id,
+        is_public=True,
+        variables_json=vars_json,
+        org_id=g.org_id
+    )
+    db.session.add(new_template)
+    db.session.commit()
+    log_activity('PLANTILLA_CREADA_API', f'Subíó nuevo formato matriz: {nombre}')
+    
+    return {"status": "success", "id": new_template.id, "nombre": nombre, "variables": json.loads(vars_json)}
 
 @templates_bp.route('/favorite/<int:template_id>', methods=['POST'])
 @login_required

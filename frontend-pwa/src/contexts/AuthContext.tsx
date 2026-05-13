@@ -41,6 +41,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     } else {
       setLoading(false);
     }
+
+    // Escuchar evento de logout por token expirado (disparado por apiFetch)
+    const handleAutoLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener('auth:logout', handleAutoLogout);
+    return () => window.removeEventListener('auth:logout', handleAutoLogout);
   }, []);
 
   const login = (token: string, userData: AuthUser) => {
