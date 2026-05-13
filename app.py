@@ -20,13 +20,48 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
-    # Habilitar CORS restrictivo para la PWA (React/Vercel)
-    allowed_origins = os.environ.get('CORS_ORIGINS', 'https://inova-tactico.vercel.app,http://localhost:5173,http://localhost:3000,https://ovniflow.vercel.app').split(',')
-    
-    import re
-    # Se permiten los orígenes especificados y cualquier subdominio de vercel para previews
-    cors_origins = allowed_origins + [re.compile(r"^https://.*\.vercel\.app$"), re.compile(r"^http://localhost:\d+$")]
-    CORS(app, supports_credentials=True, resources={r"/*": {"origins": cors_origins}})
+    # CORS: flask-cors como base (maneja el preflight OPTIONS)
+    CORS(app, supports_credentials=True, origins="*")
+
+    # Hook manual que garantiza headers CORS en TODAS las respuestas
+    # (incluyendo errores 500 y cualquier URL de preview de Vercel)
+    import re as _re
+    _static_origins = set(
+        os.environ.get(
+            'CORS_ORIGINS',
+            'https://inova-tactico.vercel.app,http://localhost:5173,http://localhost:3000,https://ovniflow.vercel.app'
+        ).split(',')
+    )
+
+    @app.after_request
+    def ensure_cors_headers(response):
+        from flask import request as _req
+        origin = _req.headers.get('Origin', '')
+        if not origin:
+            return response
+
+        is_allowed = (
+            origin in _static_origins
+            or bool(_re.match(r'^https://[a-zA-Z0-9._-]+\.vercel\.app$', origin))
+            or bool(_re.match(r'^http://localhost:\d+$', origin))
+        )
+
+        if is_allowed:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+            response.headers['Vary'] = 'Origin, Accept-Encoding'
+
+        return response
+
+    # Manejador global de preflight OPTIONS para todas las rutas
+    @app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+    @app.route('/<path:path>', methods=['OPTIONS'])
+    def handle_preflight_global(path=''):
+        response = app.make_response('')
+        response.status_code = 200
+        return response
 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
