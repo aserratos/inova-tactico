@@ -21,8 +21,12 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
     # Habilitar CORS restrictivo para la PWA (React/Vercel)
-    allowed_origins = os.environ.get('CORS_ORIGINS', 'https://inova-tactico.vercel.app,http://localhost:5173,http://localhost:3000').split(',')
-    CORS(app, supports_credentials=True, resources={r"/*": {"origins": allowed_origins}})
+    allowed_origins = os.environ.get('CORS_ORIGINS', 'https://inova-tactico.vercel.app,http://localhost:5173,http://localhost:3000,https://ovniflow.vercel.app').split(',')
+    
+    import re
+    # Se permiten los orígenes especificados y cualquier subdominio de vercel para previews
+    cors_origins = allowed_origins + [re.compile(r"^https://.*\.vercel\.app$"), re.compile(r"^http://localhost:\d+$")]
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": cors_origins}})
 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
